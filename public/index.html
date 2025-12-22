@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PharmChecker - 투약 확인</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="header">
+    <h1>투약 확인 시스템</h1>
+    <a class="admin-link" href="/admin.html">관리자 화면</a>
+  </header>
+
+  <main class="container">
+    <section class="search">
+      <h2>환자 검색</h2>
+      <div class="form-row">
+        <label>환자명<input id="q-name" placeholder="이름 입력"></label>
+        <label>생년월일<input id="q-dob" placeholder="YYYY-MM-DD"></label>
+        <label>처방전 번호<input id="q-rx" placeholder="RX 번호"></label>
+        <button id="btn-search">검색</button>
+      </div>
+    </section>
+
+    <section class="patient-area">
+      <h2>검색 결과</h2>
+      <div id="results"></div>
+    </section>
+
+    <section class="prescriptions-area">
+      <h2>처방 상세 / 투약 확인</h2>
+      <label>담당 약사명 <input id="pharmacist" placeholder="약사 이름"></label>
+      <div id="prescriptions"></div>
+    </section>
+  </main>
+
+  <script src="/main.js"></script>
+</body>
+</html>

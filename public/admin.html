@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PharmChecker - 관리자</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="header">
+    <h1>관리자 - 투약 로그</h1>
+    <a class="admin-link" href="/">메인으로</a>
+  </header>
+
+  <main class="container">
+    <section class="filters">
+      <h2>필터</h2>
+      <div class="form-row">
+        <label>환자명<input id="f-patient" placeholder="환자명"></label>
+        <label>약사<input id="f-pharmacist" placeholder="약사명"></label>
+        <label>약품명<input id="f-med" placeholder="약품명"></label>
+        <label>시작일<input id="f-from" placeholder="YYYY-MM-DD"></label>
+        <label>종료일<input id="f-to" placeholder="YYYY-MM-DD"></label>
+        <button id="btn-filter">조회</button>
+      </div>
+    </section>
+
+    <section class="logs-area">
+      <h2>투약 로그</h2>
+      <div id="logs"></div>
+    </section>
+  </main>
+
+  <script src="/admin.js"></script>
+</body>
+</html>

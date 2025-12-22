@@ -1,0 +1,43 @@
+[
+  {
+    "id": "p1",
+    "name": "홍길동",
+    "dob": "1980-05-12",
+    "prescriptions": [
+      {
+        "id": "rx1",
+        "rxNumber": "RX1001",
+        "medName": "아목시실린",
+        "dosage": "500 mg",
+        "frequency": "3 times/day",
+        "times": ["08:00", "14:00", "20:00"],
+        "barcode": "AMX-500-RX1001"
+      },
+      {
+        "id": "rx2",
+        "rxNumber": "RX1002",
+        "medName": "타이레놀",
+        "dosage": "500 mg",
+        "frequency": "2 times/day",
+        "times": ["09:00", "21:00"],
+        "barcode": "TYL-500-RX1002"
+      }
+    ]
+  },
+  {
+    "id": "p2",
+    "name": "김영희",
+    "dob": "1992-11-02",
+    "prescriptions": [
+      {
+        "id": "rx3",
+        "rxNumber": "RX2001",
+        "medName": "심바스타틴",
+        "dosage": "10 mg",
+        "frequency": "1 time/day",
+        "times": ["21:00"],
+        "barcode": "SMB-10-RX2001"
+      }
+    ]
+  }
+]
