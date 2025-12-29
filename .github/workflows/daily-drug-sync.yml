@@ -1,0 +1,35 @@
+name: Drug Master Sync - Daily
+
+on:
+  schedule:
+    # 매일 01:00 KST (UTC 16:00)
+    - cron: "0 16 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 최대 6시간 (전체 페이지 완주 대비)
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          npm install node-fetch @supabase/supabase-js
+
+      - name: Run Daily Drug Master Sync
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ODCLOUD_SERVICE_KEY: ${{ secrets.ODCLOUD_SERVICE_KEY }}
+          # 선택: 특정 표준코드 디버깅 시 사용
+          # DEBUG_PACK_BARCODE: "8806435078025"
+        run: |
+          node scripts/drug_master_sync.js --mode=daily
