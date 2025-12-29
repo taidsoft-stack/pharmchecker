@@ -39,10 +39,13 @@ app.use(function (err, req, res, next) {
   });
 });
 
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 
-app.listen(PORT, () => {
-  console.log(`http://localhost:${PORT} 으로 샘플 앱이 실행되었습니다.`);
-});
+// Netlify Functions에서는 listen하지 않음
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`http://localhost:${PORT} 으로 샘플 앱이 실행되었습니다.`);
+  });
+}
 
 module.exports = app;

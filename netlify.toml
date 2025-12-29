@@ -1,15 +1,12 @@
 [build]
-  # No build command needed for static files in `public`.
+  command = "npm install"
+  functions = "netlify/functions"
   publish = "public"
 
 [[redirects]]
-  # Proxy API calls to your backend. Replace the URL below with your deployed backend.
-  # Example: to = "https://my-backend.example.com/:splat"
-  from = "/api/*"
-  to = "https://REPLACE_WITH_BACKEND/:splat"
+  from = "/*"
+  to = "/.netlify/functions/server/:splat"
   status = 200
-  force = true
 
 [context.production.environment]
-  # You can add production environment variables here in Netlify UI as well.
   NODE_ENV = "production"
