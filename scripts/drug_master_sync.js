@@ -183,11 +183,19 @@ async function run() {
       const n = name(r);
       if (!p || !n) continue;
 
+      const approvalDate = parseApprovalDate(approved(r));
+
       batch.push({
         pack_barcode: p,
         base_barcode: base(r) || null,
         drug_name: n,
         unit: unit(r),
+
+        // ✅ 품목허가일자 추가
+        approval_date: approvalDate
+          ? approvalDate.toISOString()
+          : null,
+
         updated_at: new Date().toISOString(),
       });
     }
