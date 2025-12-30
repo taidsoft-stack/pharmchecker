@@ -3,6 +3,7 @@ var express = require("express");
 var path = require("path");
 var cookieParser = require("cookie-parser");
 var logger = require("morgan");
+require('dotenv').config();
 
 // routes는 항상 상대 경로로 require (번들링 시점에 해결됨)
 var indexRouter = require("./routes/index");
@@ -47,14 +48,5 @@ app.use(function (err, req, res, next) {
     message: "알 수 없는 에러가 발생했습니다.",
   });
 });
-
-const PORT = process.env.PORT || 8080;
-
-// Netlify Functions에서는 listen하지 않음
-if (!process.env.NETLIFY && process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`http://localhost:${PORT} 으로 샘플 앱이 실행되었습니다.`);
-  });
-}
 
 module.exports = app;

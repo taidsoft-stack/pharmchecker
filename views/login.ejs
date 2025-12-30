@@ -285,7 +285,7 @@
 
   <script>
     // 구글 로그인 응답 처리
-    function handleCredentialResponse(response) {
+    async function handleCredentialResponse(response) {
       console.log("Encoded JWT ID token: " + response.credential);
       
       // 로딩 표시
@@ -296,17 +296,43 @@
         const payload = parseJwt(response.credential);
         console.log("User info:", payload);
         
-        // 사용자 정보 저장 (세션 스토리지)
-        sessionStorage.setItem('user', JSON.stringify({
-          email: payload.email,
-          name: payload.name,
-          picture: payload.picture
-        }));
-        
-        // 로그인 성공 - pharmchecker.ejs로 리다이렉트
-        setTimeout(() => {
-          window.location.href = '/pharmchecker';
-        }, 500);
+        // 서버에 로그인 요청
+        const loginResponse = await fetch('/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: payload.email
+          })
+        });
+
+        const result = await loginResponse.json();
+
+        if (loginResponse.ok && result.success) {
+          // 로그인 성공 - 세션에 사용자 정보 저장
+          sessionStorage.setItem('user', JSON.stringify({
+            userId: result.data.userId,
+            email: result.data.email,
+            name: result.data.pharmacistName,
+            pharmacyName: result.data.pharmacyName,
+            picture: result.data.googlePicture || payload.picture
+          }));
+          
+          // pharmchecker 페이지로 이동
+          setTimeout(() => {
+            window.location.href = '/pharmchecker';
+          }, 500);
+        } else {
+          // 로그인 실패 - 등록되지 않은 이메일
+          document.getElementById('loading').style.display = 'none';
+          alert(result.message || '로그인에 실패했습니다.');
+          
+          // 회원가입 페이지로 이동할지 확인
+          if (confirm('등록되지 않은 계정입니다. 회원가입 페이지로 이동하시겠습니까?')) {
+            window.location.href = '/join';
+          }
+        }
         
       } catch (error) {
         console.error("Login failed:", error);
@@ -347,17 +373,25 @@
         devButton.textContent = '개발 모드 로그인 (테스트용)';
         devButton.style.cssText = 'padding: 12px 24px; background: #4285f4; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 20px;';
         devButton.onclick = function() {
-          // 테스트용 사용자 정보
-          sessionStorage.setItem('user', JSON.stringify({
-            email: 'test@pharmchecker.com',
-            name: '테스트 사용자',
-            picture: ''
-          }));
-          window.location.href = '/pharmchecker';
+          // 테스트용 JWT 생성 및 로그인
+          handleCredentialResponse({
+            credential: createTestJWT()
+          });
         };
         document.querySelector('.google-btn-container').appendChild(devButton);
       }
     });
+    
+    // 테스트용 JWT 생성
+    function createTestJWT() {
+      const header = btoa(JSON.stringify({alg: "HS256", typ: "JWT"}));
+      const payload = btoa(JSON.stringify({
+        email: 'test@pharmchecker.com',
+        name: '테스트 사용자',
+        picture: ''
+      }));
+      return header + '.' + payload + '.signature';
+    }
   </script>
 </body>
 </html>

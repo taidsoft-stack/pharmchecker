@@ -40,7 +40,7 @@ const supabase = createClient(
  * CONST
  * ========================= */
 const PER_PAGE = 200;
-const EXCLUDED_TYPES = ['일반의약품', '한약재', '의약외품'];
+const EXCLUDED_TYPES = ['한약재', '의약외품'];
 
 /* =========================
  * NORMALIZE UTILS

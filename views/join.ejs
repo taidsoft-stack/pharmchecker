@@ -515,7 +515,7 @@
     });
     
     // 폼 제출 처리
-    function handleSubmit(event) {
+    async function handleSubmit(event) {
       event.preventDefault();
       
       // 모든 필수 필드 검증
@@ -581,21 +581,30 @@
       
       console.log('회원가입 데이터:', formData);
       
-      // TODO: 서버로 데이터 전송
-      // 현재는 콘솔에 출력 및 세션 저장
-      sessionStorage.setItem('user', JSON.stringify({
-        email: formData.email,
-        name: formData.pharmacistName,
-        picture: formData.googlePicture,
-        pharmacistPhone: formData.pharmacistPhone,
-        businessNumber: formData.businessNumber,
-        pharmacyName: formData.pharmacyName,
-        pharmacyPhone: formData.pharmacyPhone,
-        fullAddress: formData.address + ' ' + formData.detailAddress
-      }));
-      
-      alert('회원가입이 완료되었습니다!');
-      window.location.href = '/pharmchecker';
+      // 서버로 데이터 전송
+      try {
+        const response = await fetch('/api/signup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData)
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          // 회원가입 성공
+          alert('회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.');
+          window.location.href = '/login';
+        } else {
+          // 회원가입 실패
+          alert(result.message || '회원가입에 실패했습니다.');
+        }
+      } catch (error) {
+        console.error('회원가입 요청 에러:', error);
+        alert('서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      }
     }
     
     // 개발 모드
