@@ -4,19 +4,16 @@ var path = require("path");
 var cookieParser = require("cookie-parser");
 var logger = require("morgan");
 
-// Netlify Functions 환경에서 routes 경로 수정
-const routesPath = process.env.NETLIFY 
-  ? path.join(__dirname, '../../routes/index')
-  : './routes/index';
-var indexRouter = require(routesPath);
+// routes는 항상 상대 경로로 require (번들링 시점에 해결됨)
+var indexRouter = require("./routes/index");
 
 var app = express();
 
 // view engine setup
-// Netlify Functions 환경에서는 절대 경로 사용
+// Netlify Functions 환경: views는 같은 디렉토리에 복사됨
 const viewsPath = process.env.NETLIFY 
-  ? path.join(__dirname, '../../views')  // Netlify Functions 환경
-  : path.join(__dirname, 'views');        // 로컬 환경
+  ? path.join(__dirname, 'views')      // Netlify Functions 환경
+  : path.join(__dirname, 'views');      // 로컬 환경 (동일)
 
 app.set("views", viewsPath);
 app.set("view engine", "ejs");
@@ -26,11 +23,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-// Netlify Functions 환경에서는 public 경로도 수정
-const publicPath = process.env.NETLIFY
-  ? path.join(__dirname, '../../public')  // Netlify Functions 환경
-  : path.join(__dirname, 'public');        // 로컬 환경
-
+// Netlify에서 public은 별도로 서빙됨 (CDN)
+const publicPath = path.join(__dirname, 'public');
 app.use(express.static(publicPath));
 
 app.use("/", indexRouter);

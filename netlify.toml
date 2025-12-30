@@ -1,14 +1,15 @@
 [build]
-  command = "npm install"
+  command = "npm install && mkdir -p netlify/functions/views netlify/functions/data && cp -r views/* netlify/functions/views/ && cp -r data/* netlify/functions/data/"
   functions = "netlify/functions"
   publish = "public"
 
 [functions]
-  # Functions 디렉토리의 모든 의존성 포함
+  # esbuild를 사용하여 모든 의존성을 번들링
   node_bundler = "esbuild"
-  external_node_modules = ["express", "ejs"]
-  # views, routes, data, public 폴더를 Functions에 포함
-  included_files = ["views/**", "routes/**", "data/**", "public/**"]
+  # 특정 모듈은 외부에서 로드 (너무 크거나 네이티브 모듈)
+  external_node_modules = ["aws-sdk"]
+  # 정적 파일들 포함
+  included_files = ["views/**", "data/**"]
 
 [[redirects]]
   from = "/*"
