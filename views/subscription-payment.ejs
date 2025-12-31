@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>구독 결제 - PharmChecker</title>
+  <script src="https://js.tosspayments.com/v2/standard"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .payment-container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 600px;
+      width: 100%;
+      overflow: hidden;
+    }
+    .payment-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 40px 30px;
+      text-align: center;
+    }
+    .payment-header h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    .payment-content {
+      padding: 40px;
+    }
+    .plan-summary {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+    .plan-summary h3 {
+      color: #2c3e50;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      color: #34495e;
+    }
+    .summary-row.total {
+      border-top: 2px solid #dee2e6;
+      padding-top: 15px;
+      margin-top: 15px;
+      font-weight: 700;
+      font-size: 20px;
+      color: #667eea;
+    }
+    .payment-button {
+      width: 100%;
+      padding: 18px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .payment-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+    }
+    .payment-button:disabled {
+      background: #bdc3c7;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .notice {
+      margin-top: 20px;
+      padding: 15px;
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      border-radius: 5px;
+      font-size: 14px;
+      color: #856404;
+      line-height: 1.6;
+    }
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 20px;
+      color: #7f8c8d;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .back-link:hover {
+      color: #667eea;
+    }
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+    .loading.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="payment-container">
+    <div class="payment-header">
+      <h1>💳 구독 결제</h1>
+      <p>안전한 토스페이먼츠 자동결제</p>
+    </div>
+
+    <div class="payment-content">
+      <div class="plan-summary">
+        <h3>📋 결제 정보</h3>
+        <div class="summary-row">
+          <span>플랜</span>
+          <span id="planName">-</span>
+        </div>
+        <div class="summary-row">
+          <span>결제 금액</span>
+          <span id="planPrice">-</span>
+        </div>
+        <div class="summary-row">
+          <span>결제 주기</span>
+          <span>매월 자동결제</span>
+        </div>
+        <div class="summary-row total">
+          <span>첫 달 결제 금액</span>
+          <span id="totalPrice">-</span>
+        </div>
+      </div>
+
+      <div id="payment-method"></div>
+      <div id="agreement"></div>
+
+      <button id="payment-button" class="payment-button">
+        결제하기
+      </button>
+
+      <div class="loading" id="loading">
+        <p>결제 처리 중...</p>
+      </div>
+
+      <div class="notice">
+        ⚠️ 첫 달은 선택하신 플랜으로 고정되며, 다음 달부터 실제 사용량에 따라 자동으로 플랜이 조정됩니다.
+      </div>
+
+      <a href="/subscription/plans" class="back-link">← 플랜 다시 선택하기</a>
+    </div>
+  </div>
+
+  <script>
+    // 사용자 정보 및 플랜 정보 확인
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+    const selectedPlan = JSON.parse(sessionStorage.getItem('selectedPlan') || '{}');
+
+    if (!user.userId || !selectedPlan.planId) {
+      alert('잘못된 접근입니다.');
+      window.location.href = '/subscription/plans';
+    }
+
+    // 플랜 정보 표시
+    document.getElementById('planName').textContent = selectedPlan.planName;
+    document.getElementById('planPrice').textContent = selectedPlan.price.toLocaleString() + '원/월';
+    document.getElementById('totalPrice').textContent = selectedPlan.price.toLocaleString() + '원';
+
+    // 토스페이먼츠 초기화 (서버에서 .env의 TOSS_CLIENT_KEY 전달받음)
+    const clientKey = '<%= tossClientKey %>';
+    const customerKey = user.userId; // 사용자 ID를 customerKey로 사용
+
+    const tossPayments = TossPayments(clientKey);
+
+    // 자동결제용 payment 인스턴스 생성
+    const payment = tossPayments.payment({ customerKey });
+
+    // 카드 등록하기 버튼 이벤트
+    document.getElementById('payment-button').addEventListener('click', async function() {
+      const button = this;
+      button.disabled = true;
+      document.getElementById('loading').classList.add('active');
+
+      try {
+        // 자동결제 카드 등록 요청
+        await payment.requestBillingAuth({
+          method: 'CARD', // 자동결제(빌링)는 카드만 지원
+          successUrl: window.location.origin + `/subscription/billing-success?planId=${selectedPlan.planId}&userId=${user.userId}&amount=${selectedPlan.price}`,
+          failUrl: window.location.origin + '/subscription/payment-fail',
+          customerEmail: user.email,
+          customerName: user.name,
+        });
+
+      } catch (error) {
+        console.error('카드 등록 요청 실패:', error);
+        alert('카드 등록 요청에 실패했습니다: ' + error.message);
+        button.disabled = false;
+        document.getElementById('loading').classList.remove('active');
+      }
+    });
+  </script>
+</body>
+</html>

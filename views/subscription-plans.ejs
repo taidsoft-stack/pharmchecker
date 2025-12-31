@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>구독 플랜 선택 - PharmChecker</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 50px;
+    }
+    .header h1 {
+      font-size: 36px;
+      margin-bottom: 10px;
+    }
+    .header p {
+      font-size: 18px;
+      opacity: 0.9;
+    }
+    .plans-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+    .plan-card {
+      background: white;
+      border-radius: 20px;
+      padding: 40px 30px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      transition: transform 0.3s, box-shadow 0.3s;
+      cursor: pointer;
+      position: relative;
+    }
+    .plan-card:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+    .plan-card.recommended {
+      border: 3px solid #667eea;
+    }
+    .plan-card.recommended::before {
+      content: '추천';
+      position: absolute;
+      top: -15px;
+      right: 20px;
+      background: #667eea;
+      color: white;
+      padding: 5px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .plan-name {
+      font-size: 28px;
+      font-weight: 700;
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+    .plan-price {
+      font-size: 42px;
+      font-weight: 800;
+      color: #667eea;
+      margin-bottom: 5px;
+    }
+    .plan-price span {
+      font-size: 18px;
+      color: #7f8c8d;
+      font-weight: 400;
+    }
+    .plan-limit {
+      font-size: 16px;
+      color: #7f8c8d;
+      margin-bottom: 30px;
+    }
+    .plan-features {
+      list-style: none;
+      margin-bottom: 30px;
+    }
+    .plan-features li {
+      padding: 10px 0;
+      color: #34495e;
+      border-bottom: 1px solid #ecf0f1;
+    }
+    .plan-features li:before {
+      content: '✓';
+      color: #27ae60;
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    .select-btn {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .select-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    .notice {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      margin-top: 30px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    .notice h3 {
+      color: #2c3e50;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+    .notice ul {
+      list-style: none;
+      color: #7f8c8d;
+      line-height: 1.8;
+    }
+    .notice li:before {
+      content: '•';
+      color: #667eea;
+      font-weight: bold;
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>💊 PharmChecker</h1>
+      <p>약국에 딱 맞는 플랜을 선택하세요</p>
+    </div>
+
+    <div class="plans-grid" id="plansGrid">
+      <!-- 플랜 카드는 서버에서 동적으로 생성됩니다 -->
+    </div>
+
+    <div class="notice">
+      <h3>📌 안내사항</h3>
+      <ul>
+        <li>첫 달은 선택하신 플랜으로 고정되며, 사용량 초과 시에도 추가 요금이 발생하지 않습니다.</li>
+        <li>두 번째 달부터는 실제 사용량을 기준으로 자동으로 플랜이 결정됩니다.</li>
+        <li>결제는 매월 자동으로 이루어지며, 언제든지 해지 가능합니다.</li>
+        <li>토스페이먼츠 자동결제로 안전하게 관리됩니다.</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    // 사용자 정보 확인
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+    if (!user.userId) {
+      alert('로그인이 필요합니다.');
+      window.location.href = '/login';
+    }
+
+    // 플랜 데이터 로드
+    async function loadPlans() {
+      try {
+        const response = await fetch('/api/subscription/plans');
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          renderPlans(result.data);
+        } else {
+          alert('플랜 정보를 불러오는데 실패했습니다.');
+        }
+      } catch (error) {
+        console.error('플랜 로드 에러:', error);
+        alert('플랜 정보를 불러오는데 실패했습니다.');
+      }
+    }
+
+    // 플랜 카드 렌더링
+    function renderPlans(plans) {
+      const plansGrid = document.getElementById('plansGrid');
+      plansGrid.innerHTML = '';
+
+      plans.forEach((plan, index) => {
+        const card = document.createElement('div');
+        card.className = 'plan-card' + (index === 1 ? ' recommended' : '');
+        
+        const features = [
+          '실시간 복약 순응도 모니터링',
+          '스마트 알림 시스템',
+          '환자별 맞춤 관리',
+          '데이터 기반 인사이트',
+          '24/7 고객 지원'
+        ];
+
+        card.innerHTML = `
+          <div class="plan-name">${plan.plan_name}</div>
+          <div class="plan-price">
+            ${plan.monthly_price.toLocaleString()}<span>원/월</span>
+          </div>
+          <div class="plan-limit">
+            일별 최대 ${plan.daily_rx_limit === null || plan.daily_rx_limit >= 999999 ? '무제한' : plan.daily_rx_limit + '건'}
+          </div>
+          <ul class="plan-features">
+            ${features.map(f => `<li>${f}</li>`).join('')}
+          </ul>
+          <button class="select-btn" onclick="selectPlan('${plan.plan_id}', '${plan.plan_name}', ${plan.monthly_price})">
+            선택하기
+          </button>
+        `;
+        
+        plansGrid.appendChild(card);
+      });
+    }
+
+    // 플랜 선택
+    async function selectPlan(planId, planName, price) {
+      if (!confirm(`${planName} 플랜 (${price.toLocaleString()}원/월)을 선택하시겠습니까?`)) {
+        return;
+      }
+
+      try {
+        // 결제 페이지로 이동하면서 플랜 정보 전달
+        sessionStorage.setItem('selectedPlan', JSON.stringify({
+          planId: planId,
+          planName: planName,
+          price: price
+        }));
+        
+        window.location.href = '/subscription/payment';
+      } catch (error) {
+        console.error('플랜 선택 에러:', error);
+        alert('플랜 선택 중 오류가 발생했습니다.');
+      }
+    }
+
+    // 페이지 로드 시 플랜 불러오기
+    loadPlans();
+  </script>
+</body>
+</html>

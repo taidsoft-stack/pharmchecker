@@ -284,6 +284,16 @@
   </div>
 
   <script>
+    // 페이지 로드 시 세션 체크
+    window.addEventListener('load', function() {
+      const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+      if (user.userId) {
+        // 이미 로그인되어 있으면 pharmchecker로 리다이렉트
+        window.location.href = '/pharmchecker';
+        return;
+      }
+    });
+
     // 구글 로그인 응답 처리
     async function handleCredentialResponse(response) {
       console.log("Encoded JWT ID token: " + response.credential);
