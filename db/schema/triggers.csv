@@ -1,0 +1,4 @@
+schema,table_name,trigger_name,action_timing,event_manipulation,action_statement
+public,admin_user_memos,trigger_update_admin_user_memos_updated_at,BEFORE,UPDATE,EXECUTE FUNCTION update_admin_user_memos_updated_at()
+public,rxrecipe_details,trg_rxrecipe_details_after_delete,AFTER,DELETE,EXECUTE FUNCTION trg_rxrecipe_details_after_delete()
+public,users,update_users_updated_at,BEFORE,UPDATE,EXECUTE FUNCTION update_updated_at_column()

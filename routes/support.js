@@ -127,7 +127,7 @@ router.get('/api/tickets', async (req, res) => {
           created_at,
           is_public
         ),
-        support_attachments (
+        support_attachments!support_attachments_ticket_id_fkey (
           attachment_id,
           file_name,
           file_size
@@ -181,7 +181,7 @@ router.get('/api/tickets/:id', async (req, res) => {
           created_at,
           is_public
         ),
-        support_attachments (
+        support_attachments!support_attachments_ticket_id_fkey (
           attachment_id,
           file_path,
           file_name,
@@ -209,11 +209,17 @@ router.get('/api/tickets/:id', async (req, res) => {
           .from('support-attachments')
           .createSignedUrl(attachment.file_path, 3600); // 1시간 유효
 
-        if (!urlError && signedUrl) {
-          attachment.download_url = signedUrl.signedUrl;
+        if (urlError) {
+          console.error('Signed URL 생성 실패:', attachment.file_name, urlError);
         }
+
+        // file_url로 통일 (관리자 API와 일관성)
+        attachment.file_url = signedUrl?.signedUrl || null;
+        attachment.download_url = attachment.file_url; // 하위 호환성
       }
     }
+
+    console.log('고객 문의 첨부파일 URL 생성:', ticket.support_attachments?.length || 0, '개');
 
     res.json({ ticket });
   } catch (error) {
@@ -471,6 +477,7 @@ router.post('/api/remote/simple', async (req, res) => {
   }
 });
 
+// FAQ 목록 조회
 // FAQ 목록 조회
 router.get('/api/faq', async (req, res) => {
   try {

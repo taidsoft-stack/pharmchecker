@@ -205,6 +205,8 @@ public,admin_user_memos,user_id,uuid,NO,null,메모 대상 회원 사용자 ID
 public,admin_user_memos,admin_id,uuid,NO,null,메모를 작성한 관리자 사용자 ID
 public,admin_user_memos,memo,text,NO,null,"회원 특성, 상담 이력, 주의사항 등 관리자 내부 메모"
 public,admin_user_memos,created_at,timestamp with time zone,NO,now(),메모 작성 시각
+public,admin_user_memos,updated_at,timestamp with time zone,YES,now(),메모 최종 수정 시각
+public,admin_user_memos,remarks,character varying,YES,null,"간단한 비고 (회원 목록 표시용, 최대 200자)"
 public,admins,admin_id,uuid,NO,null,관리자 사용자 ID (auth.users.id와 동일)
 public,admins,role,text,NO,'admin'::text,"관리자 역할 (super_admin, admin, operator)"
 public,admins,is_active,boolean,NO,true,관리자 계정 활성 여부
@@ -420,6 +422,8 @@ public,support_attachments,file_name,text,NO,null,원본 파일명
 public,support_attachments,mime_type,text,NO,null,"파일 MIME 타입 (image/png, image/jpeg 등)"
 public,support_attachments,file_size,bigint,NO,null,파일 크기 (bytes)
 public,support_attachments,created_at,timestamp with time zone,NO,now(),첨부파일 등록 시각
+public,support_attachments,reply_id,uuid,YES,null,"관리자 답변에 첨부된 파일일 경우 support_replies.reply_id, 문의 첨부일 경우 NULL"
+public,support_attachments,uploaded_by,text,NO,'user'::text,업로드 주체: user(고객 문의 첨부) | admin(관리자 답변 첨부)
 public,support_replies,reply_id,uuid,NO,gen_random_uuid(),답변 UUID 식별자
 public,support_replies,ticket_id,uuid,NO,null,답변이 연결된 문의(ticket) ID
 public,support_replies,admin_id,uuid,NO,null,답변을 작성한 관리자 사용자 ID

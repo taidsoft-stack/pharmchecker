@@ -100,11 +100,24 @@
           <li><a onclick="loadPage('users')">
             <i class="fas fa-users"></i> 회원 관리
           </a></li>
+          <li><a onclick="window.location.href='/admin/mobile'">
+            <i class="fas fa-mobile-alt"></i> 모바일 조회
+          </a></li>
           <li><a onclick="loadPage('subscriptions')">
             <i class="fas fa-credit-card"></i> 구독 현황
           </a></li>
           <li><a onclick="loadPage('payments')">
             <i class="fas fa-receipt"></i> 결제 내역
+          </a></li>
+        </ul>
+
+        <p class="menu-label">고객 문의 관리</p>
+        <ul class="menu-list">
+          <li><a onclick="loadPage('support-tickets')">
+            <i class="fas fa-headset"></i> 문의 관리
+          </a></li>
+          <li><a onclick="loadPage('remote-support')">
+            <i class="fas fa-desktop"></i> 원격 지원 관리
           </a></li>
         </ul>
 
@@ -245,6 +258,192 @@
           </table>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- 회원 상세 정보 모달 -->
+  <div class="modal" id="userDetailModal">
+    <div class="modal-background" onclick="closeUserDetailModal()"></div>
+    <div class="modal-card" style="width: 90%; max-width: 1200px;">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="fas fa-user-circle"></i> <span id="modalUserName">회원 상세 정보</span>
+        </p>
+        <button class="delete" aria-label="close" onclick="closeUserDetailModal()"></button>
+      </header>
+      <section class="modal-card-body" style="max-height: 80vh; overflow-y: auto;">
+        <!-- 탭 메뉴 -->
+        <div class="tabs is-boxed">
+          <ul>
+            <li class="is-active" data-tab="basic">
+              <a onclick="switchTab('basic')">
+                <span class="icon is-small"><i class="fas fa-info-circle"></i></span>
+                <span>기본 정보</span>
+              </a>
+            </li>
+            <li data-tab="subscription">
+              <a onclick="switchTab('subscription')">
+                <span class="icon is-small"><i class="fas fa-credit-card"></i></span>
+                <span>구독 내역</span>
+              </a>
+            </li>
+            <li data-tab="payment">
+              <a onclick="switchTab('payment')">
+                <span class="icon is-small"><i class="fas fa-money-bill-wave"></i></span>
+                <span>결제 내역</span>
+              </a>
+            </li>
+            <li data-tab="promotion">
+              <a onclick="switchTab('promotion')">
+                <span class="icon is-small"><i class="fas fa-gift"></i></span>
+                <span>프로모션</span>
+              </a>
+            </li>
+            <li data-tab="activity">
+              <a onclick="switchTab('activity')">
+                <span class="icon is-small"><i class="fas fa-history"></i></span>
+                <span>활동 로그</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- 탭 컨텐츠 -->
+        <div id="tabContent">
+          <!-- 기본 정보 탭 -->
+          <div id="tab-basic" class="tab-content is-active">
+            <h5 class="title is-5"><i class="fas fa-user"></i> 회원 기본 정보</h5>
+            <div class="columns is-multiline">
+              <div class="column is-6">
+                <div class="field">
+                  <label class="label">약국명</label>
+                  <div class="control">
+                    <input class="input" id="detailPharmacyName" readonly>
+                  </div>
+                </div>
+              </div>
+              <div class="column is-6">
+                <div class="field">
+                  <label class="label">가입일</label>
+                  <div class="control">
+                    <input class="input" id="detailCreatedAt" readonly>
+                  </div>
+                </div>
+              </div>
+              <div class="column is-8">
+                <div class="field">
+                  <label class="label">약국 주소</label>
+                  <div class="control">
+                    <input class="input" id="detailAddress" readonly>
+                  </div>
+                </div>
+              </div>
+              <div class="column is-4">
+                <div class="field">
+                  <label class="label">계정 상태</label>
+                  <div class="control">
+                    <span id="detailAccountStatus" class="tag is-medium"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <hr>
+            <h5 class="title is-5"><i class="fas fa-sticky-note"></i> 관리자 메모 및 비고</h5>
+            
+            <!-- 새 메모/비고 작성 -->
+            <div class="box" style="background-color: #f5f5f5;">
+              <h6 class="subtitle is-6">새 메모/비고 작성</h6>
+              <div class="field">
+                <label class="label">메모</label>
+                <div class="control">
+                  <textarea class="textarea" id="newMemoText" placeholder="메모를 입력하세요..." rows="3"></textarea>
+                </div>
+              </div>
+              <div class="field">
+                <label class="label">비고 (간단한 요약, 200자 이내)</label>
+                <div class="control">
+                  <input class="input" type="text" id="newRemarksText" maxlength="200" placeholder="비고를 입력하세요...">
+                </div>
+              </div>
+              <div class="field">
+                <div class="control">
+                  <button class="button is-primary" onclick="saveNewMemo()">
+                    <i class="fas fa-save"></i> 저장
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 메모 내역 -->
+            <h6 class="subtitle is-6">메모 내역</h6>
+            <div id="memoList"></div>
+          </div>
+
+          <!-- 구독 내역 탭 -->
+          <div id="tab-subscription" class="tab-content" style="display: none;">
+            <div id="subscriptionList"></div>
+          </div>
+
+          <!-- 결제 내역 탭 -->
+          <div id="tab-payment" class="tab-content" style="display: none;">
+            <div class="table-container">
+              <table class="table is-fullwidth is-hoverable">
+                <thead>
+                  <tr>
+                    <th>결제일</th>
+                    <th>금액</th>
+                    <th>결제 수단</th>
+                    <th>상태</th>
+                    <th>주문번호</th>
+                    <th>실패 사유</th>
+                  </tr>
+                </thead>
+                <tbody id="paymentList"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 프로모션 탭 -->
+          <div id="tab-promotion" class="tab-content" style="display: none;">
+            <div class="table-container">
+              <table class="table is-fullwidth is-hoverable">
+                <thead>
+                  <tr>
+                    <th>프로모션 타입</th>
+                    <th>할인율</th>
+                    <th>무료 개월</th>
+                    <th>시작일</th>
+                    <th>만료일</th>
+                    <th>상태</th>
+                  </tr>
+                </thead>
+                <tbody id="promotionList"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 활동 로그 탭 -->
+          <div id="tab-activity" class="tab-content" style="display: none;">
+            <div class="table-container">
+              <table class="table is-fullwidth is-hoverable is-narrow" style="font-size: 0.85rem;">
+                <thead>
+                  <tr>
+                    <th>시간</th>
+                    <th>활동</th>
+                    <th>관리자</th>
+                    <th>상세</th>
+                  </tr>
+                </thead>
+                <tbody id="activityList"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="button" onclick="closeUserDetailModal()">닫기</button>
+      </footer>
     </div>
   </div>
 
@@ -404,7 +603,10 @@
     function loadPage(page) {
       // 메뉴 활성화 상태 변경
       document.querySelectorAll('.menu-list a').forEach(a => a.classList.remove('is-active'));
-      event.target.closest('a').classList.add('is-active');
+      const menuLink = event?.target?.closest('a');
+      if (menuLink) {
+        menuLink.classList.add('is-active');
+      }
       
       if (page === 'dashboard') {
         // 대시보드는 현재 페이지 리로드
@@ -416,6 +618,28 @@
         loadUsersPage();
         return;
       }
+      
+      if (page === 'subscriptions') {
+        loadSubscriptionsPage();
+        return;
+      }
+      
+      if (page === 'payments') {
+        loadPaymentsPage();
+        return;
+      }
+      
+      if (page === 'support-tickets') {
+        loadSupportTicketsPage();
+        return;
+      }
+      
+      if (page === 'remote-support') {
+        loadRemoteSupportPage();
+        return;
+      }
+      
+      // ticket-detail 페이지는 loadTicketDetailPage에서 처리
       
       // TODO: 페이지별 컨텐츠 로드
       alert(`${page} 페이지 개발 예정`);
@@ -531,26 +755,30 @@
         
         <!-- 회원 목록 테이블 -->
         <div class="box">
+          <h5 class="title is-5" id="userCount">회원 목록 (총 0명)</h5>
           <div class="table-container">
             <table class="table is-fullwidth is-hoverable is-narrow" style="font-size: 0.85rem;">
               <thead>
                 <tr>
+                  <th style="width: 40px;">#</th>
                   <th>이메일</th>
                   <th>약사명</th>
                   <th>약국명</th>
                   <th>전화번호</th>
                   <th>구독 상태</th>
                   <th>플랜</th>
-                  <th>마지막 결제일</th>
+                  <th>구독 시작일</th>
+                  <th>구독 종료일</th>
                   <th>다음 결제일</th>
                   <th>프로모션</th>
-                  <th style="min-width: 150px;">비고</th>
+                  <th style="min-width: 120px;">메모</th>
+                  <th style="min-width: 120px;">비고</th>
                   <th>상태</th>
                 </tr>
               </thead>
               <tbody id="usersTableBody">
                 <tr>
-                  <td colspan="11" class="has-text-centered">로딩 중...</td>
+                  <td colspan="14" class="has-text-centered">로딩 중...</td>
                 </tr>
               </tbody>
             </table>
@@ -613,15 +841,20 @@
         
         const data = await response.json();
         
+        // 총 회원 수 표시
+        document.getElementById('userCount').textContent = '회원 목록 (총 ' + data.total + '명)';
+        
         // 테이블 렌더링
         const tbody = document.getElementById('usersTableBody');
         
         if (!data.users || data.users.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="11" class="has-text-centered">회원이 없습니다</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="14" class="has-text-centered">회원이 없습니다</td></tr>';
           return;
         }
         
-        tbody.innerHTML = data.users.map(user => {
+        tbody.innerHTML = data.users.map((user, index) => {
+          const rowNumber = (currentPage - 1) * 20 + index + 1;
+          
           const subscriptionTag = user.subscription 
             ? '<span class="tag ' + (user.subscription.status === 'active' ? 'is-success' : 'is-warning') + '">' + (user.subscription.status === 'active' ? '활성' : '취소됨') + '</span>'
             : '<span class="tag is-light">없음</span>';
@@ -630,42 +863,60 @@
             ? '<span class="tag is-danger">탈퇴</span>' 
             : (user.is_active ? '<span class="tag is-success">활성</span>' : '<span class="tag is-warning">비활성</span>');
           
-          const lastPaymentDate = user.last_payment 
-            ? new Date(user.last_payment.date).toLocaleDateString('ko-KR')
+          const currentPeriodStart = user.subscription?.current_period_start
+            ? new Date(user.subscription.current_period_start).toLocaleDateString('ko-KR')
+            : '-';
+            
+          const currentPeriodEnd = user.subscription?.current_period_end
+            ? new Date(user.subscription.current_period_end).toLocaleDateString('ko-KR')
             : '-';
           
-          const nextBillingDate = user.subscription?.next_billing_at
-            ? new Date(user.subscription.next_billing_at).toLocaleDateString('ko-KR')
-            : '-';
+          // 탈퇴 회원이나 구독 해지 예약 회원은 다음 결제일 표시 안 함
+          let nextBillingDate = '-';
+          if (user.subscription?.next_billing_at && 
+              !user.is_deleted && 
+              user.subscription.status === 'active' && 
+              !user.subscription.cancel_at_period_end) {
+            nextBillingDate = new Date(user.subscription.next_billing_at).toLocaleDateString('ko-KR');
+          }
           
-          const promotionInfo = user.active_promotions && user.active_promotions.length > 0
-            ? user.active_promotions.map(p => {
-                if (p.promotion_type === 'discount') {
-                  return p.discount_rate + '% 할인';
-                } else if (p.promotion_type === 'free') {
-                  return p.free_months + '개월 무료';
-                }
-                return p.promotion_type;
-              }).join(', ')
-            : '-';
+          // 프로모션 정보 표시 (구독의 프로모션 정보 우선)
+          let promotionInfo = '-';
+          if (user.subscription?.promotion_id) {
+            // 구독에 프로모션이 연결된 경우
+            const expiresAt = user.subscription.promotion_expires_at 
+              ? new Date(user.subscription.promotion_expires_at).toLocaleDateString('ko-KR')
+              : '무기한';
+            promotionInfo = '프로모션 적용중 (~ ' + expiresAt + ')';
+          } else if (user.active_promotions && user.active_promotions.length > 0) {
+            // 활성 프로모션 목록 표시
+            promotionInfo = user.active_promotions.map(p => {
+              if (p.promotion_type === 'discount') {
+                return p.discount_rate + '% 할인';
+              } else if (p.promotion_type === 'free') {
+                return p.free_months + '개월 무료';
+              }
+              return p.promotion_type;
+            }).join(', ');
+          }
+          
+          const memoText = user.latest_memo || '-';
+          const remarksText = user.latest_remarks || '-';
           
           return '<tr>'+
-            '<td>' + user.email + '</td>'+
+            '<td>' + rowNumber + '</td>'+
+            '<td><a href="#" onclick="viewUserDetail(\'' + user.user_id + '\'); return false;" class="has-text-link">' + user.email + '</a></td>'+
             '<td>' + user.pharmacist_name + '</td>'+
             '<td>' + user.pharmacy_name + '</td>'+
             '<td>' + (user.pharmacist_phone || '-') + '</td>'+
             '<td>' + subscriptionTag + '</td>'+
             '<td>' + (user.subscription?.plan_name || '-') + '</td>'+
-            '<td>' + lastPaymentDate + '</td>'+
+            '<td>' + currentPeriodStart + '</td>'+
+            '<td>' + currentPeriodEnd + '</td>'+
             '<td>' + nextBillingDate + '</td>'+
             '<td style="font-size: 0.75rem;">' + promotionInfo + '</td>'+
-            '<td>'+
-              '<input type="text" class="input is-small" ' +
-              'value="' + (user.latest_remarks || '') + '" ' +
-              'onblur="updateUserRemarks(\'' + user.user_id + '\', this.value)" ' +
-              'placeholder="비고 입력..." ' +
-              'title="' + (user.full_memo ? '메모: ' + user.full_memo.substring(0, 100) : '메모 없음') + '">'+
-            '</td>'+
+            '<td style="font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px;" title="' + (user.latest_memo || '메모 없음') + '">' + memoText + '</td>'+
+            '<td style="font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px;" title="' + (user.latest_remarks || '비고 없음') + '">' + remarksText + '</td>'+
             '<td>' + accountTag + '</td>'+
           '</tr>';
         }).join('');
@@ -676,7 +927,7 @@
       } catch (error) {
         console.error('회원 목록 조회 실패:', error);
         document.getElementById('usersTableBody').innerHTML = 
-          '<tr><td colspan="11" class="has-text-centered has-text-danger">오류가 발생했습니다</td></tr>';
+          '<tr><td colspan="14" class="has-text-centered has-text-danger">오류가 발생했습니다</td></tr>';
       }
     }
     
@@ -716,12 +967,333 @@
     }
     
     // 회원 상세 페이지로 이동
-    function viewUserDetail(userId) {
-      alert('회원 상세 페이지 개발 예정\nUser ID: ' + userId);
-      // TODO: 상세 페이지 구현
+    let currentUserDetail = null;
+    let currentActiveTab = 'basic'; // 현재 활성화된 탭 추적
+    
+    // 탭 전환
+    function switchTab(tabName) {
+      currentActiveTab = tabName; // 현재 탭 저장
+      
+      // 모든 탭 비활성화
+      document.querySelectorAll('.tabs li').forEach(li => li.classList.remove('is-active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+      
+      // 선택한 탭 활성화
+      document.querySelector('.tabs li[data-tab="' + tabName + '"]').classList.add('is-active');
+      document.getElementById('tab-' + tabName).style.display = 'block';
     }
     
-    // 회원 비고 업데이트 (admin_user_memos.remarks 사용)
+    // 회원 상세 정보 모달 열기
+    async function viewUserDetail(userId) {
+      try {
+        const response = await fetch('/admin/api/users/' + userId, {
+          headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('admin_session_token')
+          }
+        });
+        
+        if (!response.ok) throw new Error('회원 정보를 불러올 수 없습니다');
+        
+        const data = await response.json();
+        currentUserDetail = data;
+        
+        // 모달 제목
+        document.getElementById('modalUserName').textContent = data.user.pharmacist_name + ' (' + data.user.email + ')';
+        
+        // 기본 정보 탭
+        document.getElementById('detailPharmacyName').value = data.user.pharmacy_name;
+        document.getElementById('detailCreatedAt').value = new Date(data.user.created_at).toLocaleString('ko-KR');
+        
+        // 주소 조합
+        const fullAddress = [
+          data.user.postcode ? '[' + data.user.postcode + ']' : '',
+          data.user.address || '',
+          data.user.detail_address || ''
+        ].filter(Boolean).join(' ');
+        document.getElementById('detailAddress').value = fullAddress || '-';
+        
+        const accountStatusEl = document.getElementById('detailAccountStatus');
+        if (data.user.is_deleted) {
+          accountStatusEl.textContent = '탈퇴';
+          accountStatusEl.className = 'tag is-danger is-medium';
+        } else if (data.user.is_active) {
+          accountStatusEl.textContent = '활성';
+          accountStatusEl.className = 'tag is-success is-medium';
+        } else {
+          accountStatusEl.textContent = '비활성';
+          accountStatusEl.className = 'tag is-warning is-medium';
+        }
+        
+        // 메모 데이터 구조 디버깅
+        console.log('=== 메모 데이터 확인 ===');
+        console.log('memos 배열:', data.memos);
+        if (data.memos && data.memos.length > 0) {
+          console.log('첫 번째 메모:', data.memos[0]);
+          console.log('첫 번째 메모 admins 객체:', data.memos[0].admins);
+        }
+        
+        // 메모 내역 렌더링 (기본 정보 탭에 표시)
+        renderMemos(data.memos);
+        
+        // 구독 내역 탭
+        renderSubscriptions(data.subscriptions);
+        
+        // 결제 내역 탭
+        renderPayments(data.payments);
+        
+        // 프로모션 탭
+        renderPromotions(data.promotions);
+        
+        // 활동 로그 탭
+        renderActivityLogs(data.activity_logs);
+        
+        // 모달 표시 및 이전 활성 탭 복원
+        document.getElementById('userDetailModal').classList.add('is-active');
+        
+        // 현재 활성화된 탭으로 전환 (기본값: basic)
+        if (currentActiveTab && currentActiveTab !== 'basic') {
+          switchTab(currentActiveTab);
+        }
+        
+      } catch (error) {
+        console.error('회원 상세 정보 조회 실패:', error);
+        alert('회원 정보를 불러오는데 실패했습니다.');
+      }
+    }
+    
+    // 모달 닫기
+    function closeUserDetailModal() {
+      document.getElementById('userDetailModal').classList.remove('is-active');
+      currentUserDetail = null;
+      currentActiveTab = 'basic'; // 탭 상태 초기화
+      
+      // 입력 필드 초기화
+      document.getElementById('newMemoText').value = '';
+      document.getElementById('newRemarksText').value = '';
+      
+      // 기본 탭으로 전환
+      switchTab('basic');
+    }
+    
+    // 구독 내역 렌더링
+    function renderSubscriptions(subscriptions) {
+      const container = document.getElementById('subscriptionList');
+      
+      if (!subscriptions || subscriptions.length === 0) {
+        container.innerHTML = '<p class="has-text-centered has-text-grey">구독 내역이 없습니다.</p>';
+        return;
+      }
+      
+      container.innerHTML = subscriptions.map((sub, index) => {
+        const statusClass = sub.status === 'active' ? 'is-success' : 
+                           sub.status === 'cancelled' ? 'is-warning' : 'is-light';
+        const statusText = sub.status === 'active' ? '활성' : 
+                          sub.status === 'cancelled' ? '취소됨' : sub.status;
+        
+        return '<div class="box">' +
+          '<div class="level">' +
+            '<div class="level-left">' +
+              '<div class="level-item">' +
+                '<div>' +
+                  '<p class="heading">플랜</p>' +
+                  '<p class="title is-5">' + (sub.subscription_plans?.plan_name || 'N/A') + '</p>' +
+                '</div>' +
+              '</div>' +
+              '<div class="level-item">' +
+                '<div>' +
+                  '<p class="heading">결제 주기</p>' +
+                  '<p class="subtitle">' + (sub.subscription_plans?.billing_period || 'N/A') + '</p>' +
+                '</div>' +
+              '</div>' +
+              '<div class="level-item">' +
+                '<div>' +
+                  '<p class="heading">가격</p>' +
+                  '<p class="subtitle">' + (sub.subscription_plans?.price ? sub.subscription_plans.price.toLocaleString() + '원' : 'N/A') + '</p>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="level-right">' +
+              '<div class="level-item">' +
+                '<span class="tag ' + statusClass + ' is-medium">' + statusText + '</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="columns is-mobile">' +
+            '<div class="column">' +
+              '<p class="heading">구독 시작</p>' +
+              '<p>' + (sub.current_period_start ? new Date(sub.current_period_start).toLocaleDateString('ko-KR') : '-') + '</p>' +
+            '</div>' +
+            '<div class="column">' +
+              '<p class="heading">구독 종료</p>' +
+              '<p>' + (sub.current_period_end ? new Date(sub.current_period_end).toLocaleDateString('ko-KR') : '-') + '</p>' +
+            '</div>' +
+            '<div class="column">' +
+              '<p class="heading">다음 결제일</p>' +
+              '<p>' + (sub.next_billing_at ? new Date(sub.next_billing_at).toLocaleDateString('ko-KR') : '-') + '</p>' +
+            '</div>' +
+            '<div class="column">' +
+              '<p class="heading">생성일</p>' +
+              '<p>' + new Date(sub.created_at).toLocaleDateString('ko-KR') + '</p>' +
+            '</div>' +
+          '</div>' +
+          (sub.cancelled_at ? '<p class="has-text-danger"><i class="fas fa-exclamation-triangle"></i> 취소일: ' + new Date(sub.cancelled_at).toLocaleString('ko-KR') + '</p>' : '') +
+        '</div>';
+      }).join('');
+    }
+    
+    // 결제 내역 렌더링
+    function renderPayments(payments) {
+      const tbody = document.getElementById('paymentList');
+      
+      if (!payments || payments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="has-text-centered has-text-grey">결제 내역이 없습니다.</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = payments.map(payment => {
+        const statusClass = payment.status === 'success' ? 'is-success' : 
+                           payment.status === 'failed' ? 'is-danger' : 'is-warning';
+        const statusText = payment.status === 'success' ? '성공' : 
+                          payment.status === 'failed' ? '실패' : payment.status;
+        
+        return '<tr>' +
+          '<td>' + new Date(payment.payment_date).toLocaleString('ko-KR') + '</td>' +
+          '<td><strong>' + payment.amount.toLocaleString() + '원</strong></td>' +
+          '<td>' + (payment.payment_method || '-') + '</td>' +
+          '<td><span class="tag ' + statusClass + '">' + statusText + '</span></td>' +
+          '<td style="font-size: 0.75rem;">' + (payment.toss_order_id || '-') + '</td>' +
+          '<td style="font-size: 0.75rem; color: #f14668;">' + (payment.failure_message || '-') + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+    
+    // 프로모션 렌더링
+    function renderPromotions(promotions) {
+      const tbody = document.getElementById('promotionList');
+      
+      if (!promotions || promotions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="has-text-centered has-text-grey">프로모션 내역이 없습니다.</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = promotions.map(promo => {
+        const typeText = promo.promotion_type === 'discount' ? '할인' : 
+                        promo.promotion_type === 'free' ? '무료' : promo.promotion_type;
+        const statusClass = promo.is_active ? 'is-success' : 'is-light';
+        const statusText = promo.is_active ? '활성' : '만료';
+        
+        return '<tr>' +
+          '<td>' + typeText + '</td>' +
+          '<td>' + (promo.discount_rate ? promo.discount_rate + '%' : '-') + '</td>' +
+          '<td>' + (promo.free_months ? promo.free_months + '개월' : '-') + '</td>' +
+          '<td>' + (promo.start_date ? new Date(promo.start_date).toLocaleDateString('ko-KR') : '-') + '</td>' +
+          '<td>' + (promo.expires_at ? new Date(promo.expires_at).toLocaleDateString('ko-KR') : '-') + '</td>' +
+          '<td><span class="tag ' + statusClass + '">' + statusText + '</span></td>' +
+        '</tr>';
+      }).join('');
+    }
+    
+    // 메모/비고 렌더링
+    function renderMemos(memos) {
+      const container = document.getElementById('memoList');
+      
+      if (!memos || memos.length === 0) {
+        container.innerHTML = '<p class="has-text-centered has-text-grey">메모가 없습니다.</p>';
+        return;
+      }
+      
+      container.innerHTML = '<div class="table-container"><table class="table is-fullwidth is-striped is-hoverable">' +
+        '<thead>' +
+          '<tr>' +
+            '<th>작성자</th>' +
+            '<th>작성일</th>' +
+            '<th>비고</th>' +
+            '<th>메모</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>' +
+          memos.map(memo => {
+            const adminEmail = memo.admin_email || '알 수 없음';
+            const remarksText = memo.remarks && memo.remarks.trim() ? memo.remarks : '<span class="has-text-grey-light">(빈칸)</span>';
+            const memoText = memo.memo && memo.memo.trim() ? memo.memo : '<span class="has-text-grey-light">(빈칸)</span>';
+            
+            return '<tr>' +
+              '<td>' + adminEmail + '</td>' +
+              '<td>' + new Date(memo.created_at).toLocaleString('ko-KR') + '</td>' +
+              '<td>' + remarksText + '</td>' +
+              '<td>' + memoText + '</td>' +
+            '</tr>';
+          }).join('') +
+        '</tbody>' +
+      '</table></div>';
+    }
+    
+    // 활동 로그 렌더링
+    function renderActivityLogs(logs) {
+      const tbody = document.getElementById('activityList');
+      
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="has-text-centered has-text-grey">활동 로그가 없습니다.</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = logs.map(log => {
+        const adminName = log.admins?.admin_name || '시스템';
+        const detailsText = log.details ? JSON.stringify(log.details) : '-';
+        
+        return '<tr>' +
+          '<td>' + new Date(log.created_at).toLocaleString('ko-KR') + '</td>' +
+          '<td>' + log.action_type + '</td>' +
+          '<td>' + adminName + '</td>' +
+          '<td style="font-size: 0.75rem; max-width: 300px; overflow: hidden; text-overflow: ellipsis;" title="' + detailsText + '">' + detailsText + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+    
+    // 새 메모 저장
+    async function saveNewMemo() {
+      if (!currentUserDetail) return;
+      
+      const memoText = document.getElementById('newMemoText').value.trim();
+      const remarksText = document.getElementById('newRemarksText').value.trim();
+      
+      if (!memoText && !remarksText) {
+        alert('메모 또는 비고를 입력해주세요.');
+        return;
+      }
+      
+      try {
+        const response = await fetch('/admin/api/users/' + currentUserDetail.user.user_id + '/memos', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('admin_session_token')
+          },
+          body: JSON.stringify({
+            memo: memoText,
+            remarks: remarksText
+          })
+        });
+        
+        if (!response.ok) throw new Error('메모 저장 실패');
+        
+        alert('메모가 저장되었습니다.');
+        
+        // 입력 필드 초기화
+        document.getElementById('newMemoText').value = '';
+        document.getElementById('newRemarksText').value = '';
+        
+        // 상세 정보 다시 로드
+        viewUserDetail(currentUserDetail.user.user_id);
+        
+      } catch (error) {
+        console.error('메모 저장 실패:', error);
+        alert('메모 저장에 실패했습니다.');
+      }
+    }
+    
+    // 회원 비고 업데이트 (admin_user_memos.remarks 사용) - 회원 목록에서는 더 이상 사용 안 함
+    // 상세 페이지에서 메모/비고 작성 사용
     async function updateUserRemarks(userId, remarksText) {
       try {
         const response = await fetch('/admin/api/users/' + userId + '/memos', {
@@ -815,6 +1387,1529 @@
     console.log('loadDashboardStats 호출');
     loadDashboardStats();
     console.log('loadRecentActivities 호출');
+    loadRecentActivities();
+
+    // ==================== 구독 현황 페이지 ====================
+    async function loadSubscriptionsPage() {
+      const mainContent = document.getElementById('mainContent');
+      
+      mainContent.innerHTML = '<h1 class="title">구독 현황</h1>' +
+        '<div class="box">' +
+          '<div class="columns is-multiline">' +
+            '<div class="column is-2">' +
+              '<div class="field">' +
+                '<label class="label">약국명</label>' +
+                '<div class="control">' +
+                  '<input class="input" type="text" id="subscriptionPharmacyName" placeholder="약국명">' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2">' +
+              '<div class="field">' +
+                '<label class="label">약사명</label>' +
+                '<div class="control">' +
+                  '<input class="input" type="text" id="subscriptionPharmacistName" placeholder="약사명">' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2">' +
+              '<div class="field">' +
+                '<label class="label">시작일</label>' +
+                '<div class="control">' +
+                  '<input class="input" type="date" id="subscriptionStartDate">' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2">' +
+              '<div class="field">' +
+                '<label class="label">종료일</label>' +
+                '<div class="control">' +
+                  '<input class="input" type="date" id="subscriptionEndDate">' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2">' +
+              '<div class="field">' +
+                '<label class="label">구독 상태</label>' +
+                '<div class="control">' +
+                  '<div class="select is-fullwidth">' +
+                    '<select id="subscriptionStatusFilter">' +
+                      '<option value="">전체</option>' +
+                      '<option value="active">활성</option>' +
+                      '<option value="cancelled">취소됨</option>' +
+                      '<option value="expired">만료됨</option>' +
+                    '</select>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-1">' +
+              '<div class="field">' +
+                '<label class="label">&nbsp;</label>' +
+                '<div class="control">' +
+                  '<button class="button is-primary is-fullwidth" onclick="searchSubscriptions()">' +
+                    '<i class="fas fa-search"></i>' +
+                  '</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-1">' +
+              '<div class="field">' +
+                '<label class="label">&nbsp;</label>' +
+                '<div class="control">' +
+                  '<button class="button is-light is-fullwidth" onclick="clearSubscriptionFilters()">' +
+                    '<i class="fas fa-redo"></i>' +
+                  '</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="box">' +
+          '<div class="table-container">' +
+            '<table class="table is-fullwidth is-striped is-hoverable">' +
+              '<thead>' +
+                '<tr>' +
+                  '<th style="width: 60px;">No.</th>' +
+                  '<th>약국명</th>' +
+                  '<th>약사명</th>' +
+                  '<th>이메일</th>' +
+                  '<th>플랜</th>' +
+                  '<th>결제 주기</th>' +
+                  '<th>상태</th>' +
+                  '<th>첫 결제일</th>' +
+                  '<th>시작일</th>' +
+                  '<th>종료일</th>' +
+                  '<th>다음 결제일</th>' +
+                  '<th>금액</th>' +
+                '</tr>' +
+              '</thead>' +
+              '<tbody id="subscriptionTableBody">' +
+                '<tr>' +
+                  '<td colspan="12" class="has-text-centered">' +
+                    '<i class="fas fa-spinner fa-pulse"></i> 로딩 중...' +
+                  '</td>' +
+                '</tr>' +
+              '</tbody>' +
+            '</table>' +
+          '</div>' +
+          '<nav class="pagination is-centered" role="navigation" id="subscriptionPagination">' +
+          '</nav>' +
+        '</div>';
+      
+      // 초기 데이터 로드
+      searchSubscriptions();
+    }
+
+    let currentSubscriptionPage = 1;
+    const subscriptionPageSize = 20;
+
+    async function searchSubscriptions(page = 1) {
+      currentSubscriptionPage = page;
+      
+      const startDate = document.getElementById('subscriptionStartDate')?.value || '';
+      const endDate = document.getElementById('subscriptionEndDate')?.value || '';
+      const status = document.getElementById('subscriptionStatusFilter')?.value || '';
+      const pharmacyName = document.getElementById('subscriptionPharmacyName')?.value || '';
+      const pharmacistName = document.getElementById('subscriptionPharmacistName')?.value || '';
+      
+      const tbody = document.getElementById('subscriptionTableBody');
+      tbody.innerHTML = '<tr><td colspan="12" class="has-text-centered"><i class="fas fa-spinner fa-pulse"></i> 로딩 중...</td></tr>';
+      
+      try {
+        const params = new URLSearchParams({
+          page: page,
+          limit: subscriptionPageSize,
+          startDate: startDate,
+          endDate: endDate,
+          status: status,
+          pharmacyName: pharmacyName,
+          pharmacistName: pharmacistName
+        });
+        
+        const response = await fetch('/admin/api/subscriptions?' + params.toString(), {
+          headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('admin_session_token')
+          }
+        });
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            alert('세션이 만료되었습니다.');
+            window.location.href = '/admin/login';
+            return;
+          }
+          throw new Error('구독 조회 실패');
+        }
+        
+        const data = await response.json();
+        renderSubscriptions(data);
+      } catch (error) {
+        console.error('구독 조회 오류:', error);
+        tbody.innerHTML = '<tr><td colspan="12" class="has-text-centered has-text-danger">조회 중 오류가 발생했습니다.</td></tr>';
+      }
+    }
+
+    function renderSubscriptions(data) {
+      const tbody = document.getElementById('subscriptionTableBody');
+      
+      if (!data.subscriptions || data.subscriptions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="12" class="has-text-centered">구독 내역이 없습니다.</td></tr>';
+        return;
+      }
+      
+      // 인덱스 계산 (최근이 1번)
+      const startIndex = (currentSubscriptionPage - 1) * subscriptionPageSize;
+      
+      tbody.innerHTML = data.subscriptions.map((sub, idx) => {
+        const index = startIndex + idx + 1;
+        
+        // 상태 표시 로직
+        let statusTag, statusText;
+        if (sub.cancel_at_period_end) {
+          // 해지 예약된 경우
+          statusTag = 'is-warning';
+          statusText = '해지 예약됨';
+        } else if (sub.status === 'active') {
+          statusTag = 'is-success';
+          statusText = '활성';
+        } else if (sub.status === 'cancelled') {
+          statusTag = 'is-danger';
+          statusText = '취소됨';
+        } else {
+          statusTag = 'is-danger';
+          statusText = '만료됨';
+        }
+        
+        // 다음 결제일 표시 로직
+        let nextBillingText;
+        if (sub.cancel_at_period_end) {
+          // 해지 예약된 경우
+          nextBillingText = '<span class="has-text-danger">해지 예정 - 결제 안 됨</span>';
+        } else if (sub.status === 'cancelled') {
+          // 이미 취소된 경우
+          nextBillingText = '<span class="has-text-grey">탈퇴 완료 - 결제 안 됨</span>';
+        } else if (sub.next_billing_at) {
+          // 정상 활성 구독
+          nextBillingText = new Date(sub.next_billing_at).toLocaleDateString('ko-KR');
+        } else {
+          nextBillingText = '-';
+        }
+        
+        return '<tr>' +
+          '<td>' + index + '</td>' +
+          '<td>' + (sub.pharmacy_name || '-') + '</td>' +
+          '<td>' + (sub.pharmacist_name || '-') + '</td>' +
+          '<td>' + (sub.email || '-') + '</td>' +
+          '<td>' + (sub.plan_name || '-') + '</td>' +
+          '<td>월간</td>' +
+          '<td><span class="tag ' + statusTag + '">' + statusText + '</span></td>' +
+          '<td>' + (sub.created_at ? new Date(sub.created_at).toLocaleDateString('ko-KR') : '-') + '</td>' +
+          '<td>' + (sub.current_period_start ? new Date(sub.current_period_start).toLocaleDateString('ko-KR') : '-') + '</td>' +
+          '<td>' + (sub.current_period_end ? new Date(sub.current_period_end).toLocaleDateString('ko-KR') : '-') + '</td>' +
+          '<td>' + nextBillingText + '</td>' +
+          '<td>' + (sub.monthly_price ? sub.monthly_price.toLocaleString() + '원' : '-') + '</td>' +
+        '</tr>';
+      }).join('');
+      
+      // 페이지네이션 렌더링
+      renderSubscriptionPagination(data.total, data.page, data.totalPages);
+    }
+
+    function renderSubscriptionPagination(total, currentPage, totalPages) {
+      const pagination = document.getElementById('subscriptionPagination');
+      
+      if (totalPages <= 1) {
+        pagination.innerHTML = '';
+        return;
+      }
+      
+      let html = '<a class="pagination-previous" ' + (currentPage === 1 ? 'disabled' : 'onclick="searchSubscriptions(' + (currentPage - 1) + ')"') + '>이전</a>';
+      html += '<a class="pagination-next" ' + (currentPage === totalPages ? 'disabled' : 'onclick="searchSubscriptions(' + (currentPage + 1) + ')"') + '>다음</a>';
+      html += '<ul class="pagination-list">';
+      
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+          html += '<li><a class="pagination-link ' + (i === currentPage ? 'is-current' : '') + '" onclick="searchSubscriptions(' + i + ')">' + i + '</a></li>';
+        } else if (i === currentPage - 3 || i === currentPage + 3) {
+          html += '<li><span class="pagination-ellipsis">&hellip;</span></li>';
+        }
+      }
+      
+      html += '</ul>';
+      pagination.innerHTML = html;
+    }
+
+    function clearSubscriptionFilters() {
+      document.getElementById('subscriptionStartDate').value = '';
+      document.getElementById('subscriptionEndDate').value = '';
+      document.getElementById('subscriptionStatusFilter').value = '';
+      document.getElementById('subscriptionPharmacyName').value = '';
+      document.getElementById('subscriptionPharmacistName').value = '';
+      searchSubscriptions(1);
+    }
+
+    // ==================== 결제 내역 페이지 ====================
+    async function loadPaymentsPage() {
+      const mainContent = document.getElementById('mainContent');
+      
+      mainContent.innerHTML = '<h1 class="title">결제 내역</h1>' +
+        '<div class="box">' +
+          '<div class="columns is-multiline">' +
+            '<div class="column is-3">' +
+              '<div class="field">' +
+                '<label class="label">약국명</label>' +
+                '<div class="control">' +
+                  '<input class="input" type="text" id="paymentPharmacyName" placeholder="약국명 검색">' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-3">' +
+              '<div class="field">' +
+                '<label class="label">약사명</label>' +
+                '<div class="control">' +
+                  '<input class="input" type="text" id="paymentPharmacistName" placeholder="약사명 검색">' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2">' +
+              '<div class="field">' +
+                '<label class="label">결제 상태</label>' +
+                '<div class="control">' +
+                  '<div class="select is-fullwidth">' +
+                    '<select id="paymentStatusFilter">' +
+                      '<option value="">전체</option>' +
+                      '<option value="success">성공</option>' +
+                      '<option value="failed">실패</option>' +
+                      '<option value="canceled">취소</option>' +
+                    '</select>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2">' +
+              '<div class="field">' +
+                '<label class="label">시작일</label>' +
+                '<div class="control">' +
+                  '<input class="input" type="date" id="paymentStartDate">' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2">' +
+              '<div class="field">' +
+                '<label class="label">종료일</label>' +
+                '<div class="control">' +
+                  '<input class="input" type="date" id="paymentEndDate">' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2 is-offset-8">' +
+              '<div class="field">' +
+                '<div class="control">' +
+                  '<button class="button is-primary is-fullwidth" onclick="searchPayments()">' +
+                    '<i class="fas fa-search"></i>&nbsp; 검색' +
+                  '</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2">' +
+              '<div class="field">' +
+                '<div class="control">' +
+                  '<button class="button is-light is-fullwidth" onclick="clearPaymentFilters()">' +
+                    '<i class="fas fa-redo"></i>&nbsp; 초기화' +
+                  '</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="box">' +
+          '<div class="table-container">' +
+            '<table class="table is-fullwidth is-striped is-hoverable">' +
+              '<thead>' +
+                '<tr>' +
+                  '<th style="width: 60px;">No.</th>' +
+                  '<th>약국명</th>' +
+                  '<th>약사명</th>' +
+                  '<th>이메일</th>' +
+                  '<th>주문번호</th>' +
+                  '<th>결제금액</th>' +
+                  '<th>결제상태</th>' +
+                  '<th>요청일시</th>' +
+                  '<th>승인일시</th>' +
+                  '<th>실패사유</th>' +
+                '</tr>' +
+              '</thead>' +
+              '<tbody id="paymentTableBody">' +
+                '<tr>' +
+                  '<td colspan="10" class="has-text-centered">' +
+                    '<i class="fas fa-spinner fa-pulse"></i> 로딩 중...' +
+                  '</td>' +
+                '</tr>' +
+              '</tbody>' +
+            '</table>' +
+          '</div>' +
+          '<nav class="pagination is-centered" role="navigation" id="paymentPagination">' +
+          '</nav>' +
+        '</div>';
+      
+      // 초기 데이터 로드
+      searchPayments();
+    }
+
+    let currentPaymentPage = 1;
+    const paymentPageSize = 20;
+
+    async function searchPayments(page = 1) {
+      currentPaymentPage = page;
+      
+      const startDate = document.getElementById('paymentStartDate')?.value || '';
+      const endDate = document.getElementById('paymentEndDate')?.value || '';
+      const status = document.getElementById('paymentStatusFilter')?.value || '';
+      const pharmacyName = document.getElementById('paymentPharmacyName')?.value?.trim() || '';
+      const pharmacistName = document.getElementById('paymentPharmacistName')?.value?.trim() || '';
+      
+      const tbody = document.getElementById('paymentTableBody');
+      tbody.innerHTML = '<tr><td colspan="10" class="has-text-centered"><i class="fas fa-spinner fa-pulse"></i> 로딩 중...</td></tr>';
+      
+      try {
+        const params = new URLSearchParams({
+          page: page,
+          limit: paymentPageSize,
+          startDate: startDate,
+          endDate: endDate,
+          status: status,
+          pharmacyName: pharmacyName,
+          pharmacistName: pharmacistName
+        });
+        
+        const response = await fetch('/admin/api/payments?' + params.toString(), {
+          headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('admin_session_token')
+          }
+        });
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            alert('세션이 만료되었습니다.');
+            window.location.href = '/admin/login';
+            return;
+          }
+          throw new Error('결제 내역 조회 실패');
+        }
+        
+        const data = await response.json();
+        renderPayments(data);
+      } catch (error) {
+        console.error('결제 내역 조회 오류:', error);
+        tbody.innerHTML = '<tr><td colspan="10" class="has-text-centered has-text-danger">조회 중 오류가 발생했습니다.</td></tr>';
+      }
+    }
+
+    function renderPayments(data) {
+      const tbody = document.getElementById('paymentTableBody');
+      
+      console.log('결제 내역 데이터:', data);
+      console.log('첫 번째 결제:', data.payments?.[0]);
+      
+      if (!data.payments || data.payments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="has-text-centered">결제 내역이 없습니다.</td></tr>';
+        return;
+      }
+      
+      // 인덱스 계산 (최근이 1번)
+      const startIndex = (currentPaymentPage - 1) * paymentPageSize;
+      
+      tbody.innerHTML = data.payments.map((payment, idx) => {
+        const index = startIndex + idx + 1;
+        
+        // amount가 null/undefined인 경우만 디버깅 로그 (0원은 무료 프로모션이므로 정상)
+        if ((payment.amount === null || payment.amount === undefined) && payment.status === 'success') {
+          console.warn('금액 누락 결제 발견:', {
+            payment_id: payment.payment_id,
+            order_id: payment.order_id,
+            amount: payment.amount,
+            status: payment.status,
+            pharmacy_name: payment.pharmacy_name,
+            email: payment.email
+          });
+        }
+        
+        // 결제 상태 표시
+        let statusTag, statusText;
+        if (payment.status === 'success') {
+          statusTag = 'is-success';
+          statusText = '성공';
+        } else if (payment.status === 'failed') {
+          statusTag = 'is-danger';
+          statusText = '실패';
+        } else if (payment.status === 'canceled') {
+          statusTag = 'is-warning';
+          statusText = '취소';
+        } else {
+          statusTag = 'is-light';
+          statusText = payment.status || '-';
+        }
+        
+        // 금액 표시 (0원은 "0원 (무료)" 표시)
+        let amountDisplay = '-';
+        if (payment.amount !== null && payment.amount !== undefined) {
+          if (payment.amount === 0) {
+            amountDisplay = '0원 (무료)';
+          } else {
+            amountDisplay = payment.amount.toLocaleString() + '원';
+          }
+        }
+        
+        return '<tr>' +
+          '<td>' + index + '</td>' +
+          '<td>' + (payment.pharmacy_name || '-') + '</td>' +
+          '<td>' + (payment.pharmacist_name || '-') + '</td>' +
+          '<td>' + (payment.email || '-') + '</td>' +
+          '<td>' + (payment.order_id || '-') + '</td>' +
+          '<td>' + amountDisplay + '</td>' +
+          '<td><span class="tag ' + statusTag + '">' + statusText + '</span></td>' +
+          '<td>' + (payment.requested_at ? new Date(payment.requested_at).toLocaleString('ko-KR') : '-') + '</td>' +
+          '<td>' + (payment.approved_at ? new Date(payment.approved_at).toLocaleString('ko-KR') : '-') + '</td>' +
+          '<td>' + (payment.fail_reason || '-') + '</td>' +
+        '</tr>';
+      }).join('');
+      
+      // 페이지네이션 렌더링
+      renderPaymentPagination(data.total, data.page, data.totalPages);
+    }
+
+    function renderPaymentPagination(total, currentPage, totalPages) {
+      const pagination = document.getElementById('paymentPagination');
+      
+      if (totalPages <= 1) {
+        pagination.innerHTML = '';
+        return;
+      }
+      
+      let html = '<a class="pagination-previous" ' + (currentPage === 1 ? 'disabled' : 'onclick="searchPayments(' + (currentPage - 1) + ')"') + '>이전</a>';
+      html += '<a class="pagination-next" ' + (currentPage === totalPages ? 'disabled' : 'onclick="searchPayments(' + (currentPage + 1) + ')"') + '>다음</a>';
+      html += '<ul class="pagination-list">';
+      
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+          html += '<li><a class="pagination-link ' + (i === currentPage ? 'is-current' : '') + '" onclick="searchPayments(' + i + ')">' + i + '</a></li>';
+        } else if (i === currentPage - 3 || i === currentPage + 3) {
+          html += '<li><span class="pagination-ellipsis">&hellip;</span></li>';
+        }
+      }
+      
+      html += '</ul>';
+      pagination.innerHTML = html;
+    }
+
+    function clearPaymentFilters() {
+      document.getElementById('paymentStartDate').value = '';
+      document.getElementById('paymentEndDate').value = '';
+      document.getElementById('paymentStatusFilter').value = '';
+      document.getElementById('paymentPharmacyName').value = '';
+      document.getElementById('paymentPharmacistName').value = '';
+      searchPayments(1);
+    }
+
+    // ==================== 문의 관리 페이지 ====================
+    async function loadSupportTicketsPage() {
+      const mainContent = document.getElementById('mainContent');
+      
+      mainContent.innerHTML = '<h1 class="title">문의 관리</h1>' +
+        '<div class="box">' +
+          '<div class="columns">' +
+            '<div class="column is-3">' +
+              '<div class="field">' +
+                '<label class="label">답변 상태</label>' +
+                '<div class="control">' +
+                  '<div class="select is-fullwidth">' +
+                    '<select id="ticketStatusFilter">' +
+                      '<option value="">전체</option>' +
+                      '<option value="open">미답변</option>' +
+                      '<option value="answered">답변완료</option>' +
+                      '<option value="closed">종료</option>' +
+                    '</select>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2">' +
+              '<div class="field">' +
+                '<label class="label">&nbsp;</label>' +
+                '<div class="control">' +
+                  '<button class="button is-primary is-fullwidth" onclick="searchTickets()">' +
+                    '<i class="fas fa-search"></i>&nbsp; 검색' +
+                  '</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2">' +
+              '<div class="field">' +
+                '<label class="label">&nbsp;</label>' +
+                '<div class="control">' +
+                  '<button class="button is-light is-fullwidth" onclick="clearTicketFilters()">' +
+                    '<i class="fas fa-redo"></i>&nbsp; 초기화' +
+                  '</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="box">' +
+          '<div class="table-container">' +
+            '<table class="table is-fullwidth is-striped is-hoverable">' +
+              '<thead>' +
+                '<tr>' +
+                  '<th style="width: 60px;">No.</th>' +
+                  '<th>제목</th>' +
+                  '<th>약국명</th>' +
+                  '<th>약사명</th>' +
+                  '<th>이메일</th>' +
+                  '<th>답변 상태</th>' +
+                  '<th>생성일시</th>' +
+                  '<th>상세보기</th>' +
+                '</tr>' +
+              '</thead>' +
+              '<tbody id="ticketTableBody">' +
+                '<tr>' +
+                  '<td colspan="8" class="has-text-centered">' +
+                    '<i class="fas fa-spinner fa-pulse"></i> 로딩 중...' +
+                  '</td>' +
+                '</tr>' +
+              '</tbody>' +
+            '</table>' +
+          '</div>' +
+          '<nav class="pagination is-centered" role="navigation" id="ticketPagination">' +
+          '</nav>' +
+        '</div>' +
+        '<div id="ticketDetailModal" class="modal">' +
+          '<div class="modal-background" onclick="closeTicketDetail()"></div>' +
+          '<div class="modal-card" style="width: 800px;">' +
+            '<header class="modal-card-head">' +
+              '<p class="modal-card-title">문의 상세</p>' +
+              '<button class="delete" onclick="closeTicketDetail()"></button>' +
+            '</header>' +
+            '<section class="modal-card-body" id="ticketDetailContent">' +
+              '<p class="has-text-centered"><i class="fas fa-spinner fa-pulse"></i> 로딩 중...</p>' +
+            '</section>' +
+          '</div>' +
+        '</div>';
+      
+      // 초기 데이터 로드
+      searchTickets();
+    }
+
+    let currentTicketPage = 1;
+    const ticketPageSize = 20;
+
+    async function searchTickets(page = 1) {
+      currentTicketPage = page;
+      
+      const status = document.getElementById('ticketStatusFilter')?.value || '';
+      
+      const tbody = document.getElementById('ticketTableBody');
+      tbody.innerHTML = '<tr><td colspan="8" class="has-text-centered"><i class="fas fa-spinner fa-pulse"></i> 로딩 중...</td></tr>';
+      
+      try {
+        const params = new URLSearchParams({
+          page: page,
+          limit: ticketPageSize,
+          status: status
+        });
+        
+        const response = await fetch('/admin/api/support-tickets?' + params.toString(), {
+          headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('admin_session_token')
+          }
+        });
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            alert('세션이 만료되었습니다.');
+            window.location.href = '/admin/login';
+            return;
+          }
+          throw new Error('문의 조회 실패');
+        }
+        
+        const data = await response.json();
+        renderTickets(data);
+      } catch (error) {
+        console.error('문의 조회 오류:', error);
+        tbody.innerHTML = '<tr><td colspan="8" class="has-text-centered has-text-danger">조회 중 오류가 발생했습니다.</td></tr>';
+      }
+    }
+
+    function renderTickets(data) {
+      const tbody = document.getElementById('ticketTableBody');
+      
+      if (!data.tickets || data.tickets.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="has-text-centered">문의 내역이 없습니다.</td></tr>';
+        return;
+      }
+      
+      const startIndex = (currentTicketPage - 1) * ticketPageSize;
+      
+      tbody.innerHTML = data.tickets.map((ticket, idx) => {
+        const index = startIndex + idx + 1;
+        
+        let statusTag, statusText;
+        if (ticket.status === 'open') {
+          statusTag = 'is-danger';
+          statusText = '미답변';
+        } else if (ticket.status === 'answered') {
+          statusTag = 'is-success';
+          statusText = '답변완료';
+        } else if (ticket.status === 'closed') {
+          statusTag = 'is-light';
+          statusText = '종료';
+        } else {
+          statusTag = 'is-light';
+          statusText = ticket.status || '-';
+        }
+        
+        return '<tr>' +
+          '<td>' + index + '</td>' +
+          '<td><a href="#" onclick="loadTicketDetailPage(\'' + ticket.ticket_id + '\'); return false;" style="color: #3273dc; text-decoration: underline;">' + (ticket.title || '-') + '</a></td>' +
+          '<td>' + (ticket.pharmacy_name || '-') + '</td>' +
+          '<td>' + (ticket.pharmacist_name || '-') + '</td>' +
+          '<td>' + (ticket.email || '-') + '</td>' +
+          '<td><span class="tag ' + statusTag + '">' + statusText + '</span></td>' +
+          '<td>' + (ticket.created_at ? new Date(ticket.created_at).toLocaleString('ko-KR') : '-') + '</td>' +
+          '<td><button class="button is-small is-info" onclick="loadTicketDetailPage(\'' + ticket.ticket_id + '\')">상세보기</button></td>' +
+        '</tr>';
+      }).join('');
+      
+      renderTicketPagination(data.total, data.page, data.totalPages);
+    }
+
+    function renderTicketPagination(total, currentPage, totalPages) {
+      const pagination = document.getElementById('ticketPagination');
+      
+      if (totalPages <= 1) {
+        pagination.innerHTML = '';
+        return;
+      }
+      
+      let html = '<a class="pagination-previous" ' + (currentPage === 1 ? 'disabled' : 'onclick="searchTickets(' + (currentPage - 1) + ')"') + '>이전</a>';
+      html += '<a class="pagination-next" ' + (currentPage === totalPages ? 'disabled' : 'onclick="searchTickets(' + (currentPage + 1) + ')"') + '>다음</a>';
+      html += '<ul class="pagination-list">';
+      
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+          html += '<li><a class="pagination-link ' + (i === currentPage ? 'is-current' : '') + '" onclick="searchTickets(' + i + ')">' + i + '</a></li>';
+        } else if (i === currentPage - 3 || i === currentPage + 3) {
+          html += '<li><span class="pagination-ellipsis">&hellip;</span></li>';
+        }
+      }
+      
+      html += '</ul>';
+      pagination.innerHTML = html;
+    }
+
+    function clearTicketFilters() {
+      document.getElementById('ticketStatusFilter').value = '';
+      searchTickets(1);
+    }
+
+    async function viewTicketDetail(ticketId) {
+      const modal = document.getElementById('ticketDetailModal');
+      const content = document.getElementById('ticketDetailContent');
+      
+      modal.classList.add('is-active');
+      content.innerHTML = '<p class="has-text-centered"><i class="fas fa-spinner fa-pulse"></i> 로딩 중...</p>';
+      
+      try {
+        const response = await fetch('/admin/api/support-tickets/' + ticketId, {
+          headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('admin_session_token')
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('문의 상세 조회 실패');
+        }
+        
+        const data = await response.json();
+        const ticket = data.ticket;
+        const attachments = data.attachments || [];
+        
+        let attachmentHTML = '';
+        if (attachments.length > 0) {
+          attachmentHTML = '<div class="field"><label class="label">첨부파일</label><div class="content">';
+          attachments.forEach(att => {
+            attachmentHTML += '<p><a href="' + att.file_path + '" target="_blank"><i class="fas fa-paperclip"></i> ' + att.file_name + ' (' + (att.file_size / 1024).toFixed(2) + ' KB)</a></p>';
+          });
+          attachmentHTML += '</div></div>';
+        }
+        
+        content.innerHTML = 
+          '<div class="field"><label class="label">제목</label><p class="control"><input class="input" type="text" value="' + (ticket.title || '') + '" readonly></p></div>' +
+          '<div class="field"><label class="label">작성자</label><p>' + (ticket.pharmacist_name || '-') + ' (' + (ticket.pharmacy_name || '-') + ')</p></div>' +
+          '<div class="field"><label class="label">이메일</label><p>' + (ticket.email || '-') + '</p></div>' +
+          '<div class="field"><label class="label">작성일시</label><p>' + (ticket.created_at ? new Date(ticket.created_at).toLocaleString('ko-KR') : '-') + '</p></div>' +
+          '<div class="field"><label class="label">내용</label><div class="content" style="white-space: pre-wrap; border: 1px solid #dbdbdb; padding: 1rem; border-radius: 4px; background: #fafafa;">' + (ticket.content || '') + '</div></div>' +
+          attachmentHTML +
+          '<div class="field"><label class="label">답변 상태</label><p><span class="tag ' + (ticket.status === 'open' ? 'is-danger' : ticket.status === 'answered' ? 'is-success' : 'is-light') + '">' + (ticket.status === 'open' ? '미답변' : ticket.status === 'answered' ? '답변완료' : '종료') + '</span></p></div>';
+        
+      } catch (error) {
+        console.error('문의 상세 조회 오류:', error);
+        content.innerHTML = '<p class="has-text-centered has-text-danger">상세 정보를 불러오는 중 오류가 발생했습니다.</p>';
+      }
+    }
+
+    function closeTicketDetail() {
+      document.getElementById('ticketDetailModal').classList.remove('is-active');
+    }
+
+    // 문의 상세 페이지 로드 (별도 페이지)
+    async function loadTicketDetailPage(ticketId) {
+      const mainContent = document.getElementById('mainContent');
+      
+      mainContent.innerHTML = 
+        '<div class="box">' +
+          '<nav class="breadcrumb" aria-label="breadcrumbs">' +
+            '<ul>' +
+              '<li><a href="#" onclick="loadSupportTicketsPage(); return false;">문의 관리</a></li>' +
+              '<li class="is-active"><a href="#" aria-current="page">문의 상세</a></li>' +
+            '</ul>' +
+          '</nav>' +
+          '<h1 class="title is-4">문의 상세</h1>' +
+          '<div id="ticketDetailPageContent">' +
+            '<p class="has-text-centered"><i class="fas fa-spinner fa-pulse"></i> 로딩 중...</p>' +
+          '</div>' +
+        '</div>';
+      
+      try {
+        const response = await fetch('/admin/api/support-tickets/' + ticketId, {
+          headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('admin_session_token')
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('문의 상세 조회 실패');
+        }
+        
+        const data = await response.json();
+        console.log('문의 상세 데이터:', data);
+        console.log('첨부파일 개수:', data.attachments?.length || 0);
+        console.log('답변 개수:', data.replies?.length || 0);
+        
+        const ticket = data.ticket;
+        const attachments = data.attachments || [];
+        const replies = data.replies || [];
+        
+        let attachmentHTML = '';
+        if (attachments.length > 0) {
+          attachmentHTML = '<div class="field"><label class="label">첨부파일</label><div class="content">';
+          attachments.forEach(att => {
+            const isImage = att.mime_type && att.mime_type.startsWith('image/');
+            const fileUrl = att.file_url || att.file_path;
+            if (isImage) {
+              attachmentHTML += '<div class="box" style="max-width: 500px;"><p><strong>' + att.file_name + '</strong></p><img src="' + fileUrl + '" alt="' + att.file_name + '" style="max-width: 100%; height: auto; border: 1px solid #dbdbdb; border-radius: 4px;"></div>';
+            } else {
+              attachmentHTML += '<p><a href="' + fileUrl + '" target="_blank"><i class="fas fa-paperclip"></i> ' + att.file_name + ' (' + (att.file_size ? (att.file_size / 1024).toFixed(2) + ' KB' : '-') + ')</a></p>';
+            }
+          });
+          attachmentHTML += '</div></div>';
+        }
+        
+        let repliesHTML = '';
+        if (replies.length > 0) {
+          repliesHTML = '<hr><div class="field"><label class="label">답변 내역 (' + replies.length + '건)</label>';
+          replies.forEach((reply, idx) => {
+            let replyAttHTML = '';
+            if (reply.attachments && reply.attachments.length > 0) {
+              replyAttHTML += '<div class="content mt-2"><strong>첨부파일:</strong><br>';
+              reply.attachments.forEach(att => {
+                const isImage = att.mime_type && att.mime_type.startsWith('image/');
+                const fileUrl = att.file_url || att.file_path;
+                if (isImage) {
+                  replyAttHTML += '<div class="box" style="max-width: 400px; margin-top: 0.5rem;"><img src="' + fileUrl + '" alt="' + att.file_name + '" style="max-width: 100%; height: auto; border: 1px solid #dbdbdb; border-radius: 4px;"><p class="is-size-7 mt-1">' + att.file_name + '</p></div>';
+                } else {
+                  replyAttHTML += '<p><a href="' + fileUrl + '" target="_blank"><i class="fas fa-paperclip"></i> ' + att.file_name + '</a></p>';
+                }
+              });
+              replyAttHTML += '</div>';
+            }
+            
+            repliesHTML += '<div class="box" style="background: #f0f8ff; border-left: 4px solid #3273dc;">' +
+              '<p class="is-size-7 has-text-grey mb-2">답변 #' + (idx + 1) + ' | ' + (reply.created_at ? new Date(reply.created_at).toLocaleString('ko-KR') : '-') + '</p>' +
+              '<div class="content" style="white-space: pre-wrap;">' + (reply.reply_content || '') + '</div>' +
+              replyAttHTML +
+            '</div>';
+          });
+          repliesHTML += '</div>';
+        }
+        
+        const content = document.getElementById('ticketDetailPageContent');
+        content.innerHTML = 
+          '<div class="columns">' +
+            '<div class="column is-8">' +
+              '<div class="field"><label class="label">제목</label><p class="control"><input class="input" type="text" value="' + (ticket.title || '') + '" readonly></p></div>' +
+              '<div class="columns">' +
+                '<div class="column is-6"><div class="field"><label class="label">약국명</label><p>' + (ticket.pharmacy_name || '-') + '</p></div></div>' +
+                '<div class="column is-6"><div class="field"><label class="label">약사명</label><p>' + (ticket.pharmacist_name || '-') + '</p></div></div>' +
+              '</div>' +
+              '<div class="field"><label class="label">이메일</label><p>' + (ticket.email || '-') + '</p></div>' +
+              '<div class="field"><label class="label">작성일시</label><p>' + (ticket.created_at ? new Date(ticket.created_at).toLocaleString('ko-KR') : '-') + '</p></div>' +
+            '</div>' +
+            '<div class="column is-4">' +
+              '<div class="box has-background-light">' +
+                '<div class="field"><label class="label">답변 상태</label><p><span class="tag is-large ' + (ticket.status === 'open' ? 'is-danger' : ticket.status === 'answered' ? 'is-success' : 'is-light') + '">' + (ticket.status === 'open' ? '미답변' : ticket.status === 'answered' ? '답변완료' : '종료') + '</span></p></div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<hr>' +
+          '<div class="field"><label class="label">문의 내용</label><div class="content box" style="white-space: pre-wrap; background: #fafafa; min-height: 150px;">' + (ticket.content || '') + '</div></div>' +
+          attachmentHTML +
+          repliesHTML +
+          '<hr>' +
+          '<div class="buttons">' +
+            '<button class="button is-light" onclick="loadSupportTicketsPage()">' +
+              '<i class="fas fa-arrow-left"></i>&nbsp; 목록으로' +
+            '</button>' +
+            '<button class="button is-primary" onclick="openReplyModal(\'' + ticketId + '\')">' +
+              '<i class="fas fa-reply"></i>&nbsp; 답장하기' +
+            '</button>' +
+          '</div>';
+        
+      } catch (error) {
+        console.error('문의 상세 조회 오류:', error);
+        document.getElementById('ticketDetailPageContent').innerHTML = '<div class="notification is-danger">상세 정보를 불러오는 중 오류가 발생했습니다.</div>';
+      }
+    }
+
+    // 답장 모달 열기
+    function openReplyModal(ticketId) {
+      const modal = document.createElement('div');
+      modal.id = 'replyModal';
+      modal.className = 'modal is-active';
+      modal.innerHTML = 
+        '<div class="modal-background" onclick="closeReplyModal()"></div>' +
+        '<div class="modal-card" style="width: 700px;">' +
+          '<header class="modal-card-head">' +
+            '<p class="modal-card-title">답장 작성</p>' +
+            '<button class="delete" onclick="closeReplyModal()"></button>' +
+          '</header>' +
+          '<section class="modal-card-body">' +
+            '<div class="field">' +
+              '<label class="label">답변 내용 <span class="has-text-danger">*</span></label>' +
+              '<div class="control">' +
+                '<textarea id="replyContent" class="textarea" rows="8" placeholder="답변 내용을 입력하세요"></textarea>' +
+              '</div>' +
+            '</div>' +
+            '<div class="field">' +
+              '<label class="label">첨부파일</label>' +
+              '<div class="control">' +
+                '<input id="replyFileInput" class="input" type="file" multiple accept="image/*,application/pdf,application/zip">' +
+              '</div>' +
+              '<p class="help">이미지, PDF, ZIP 파일을 첨부할 수 있습니다. (최대 5개)</p>' +
+              '<div id="replyFileList" class="content mt-2"></div>' +
+            '</div>' +
+          '</section>' +
+          '<footer class="modal-card-foot">' +
+            '<button class="button is-success" onclick="submitReply(\'' + ticketId + '\')">' +
+              '<i class="fas fa-paper-plane"></i>&nbsp; 답장 전송' +
+            '</button>' +
+            '<button class="button" onclick="closeReplyModal()">취소</button>' +
+          '</footer>' +
+        '</div>';
+      
+      document.body.appendChild(modal);
+      
+      // 파일 선택 시 미리보기
+      document.getElementById('replyFileInput').addEventListener('change', function(e) {
+        const fileList = document.getElementById('replyFileList');
+        const files = Array.from(e.target.files);
+        
+        if (files.length === 0) {
+          fileList.innerHTML = '';
+          return;
+        }
+        
+        if (files.length > 5) {
+          alert('최대 5개의 파일만 첨부할 수 있습니다.');
+          e.target.value = '';
+          return;
+        }
+        
+        fileList.innerHTML = '<ul>' + files.map(f => '<li><i class="fas fa-file"></i> ' + f.name + ' (' + (f.size / 1024).toFixed(2) + ' KB)</li>').join('') + '</ul>';
+      });
+    }
+
+    function closeReplyModal() {
+      const modal = document.getElementById('replyModal');
+      if (modal) {
+        modal.remove();
+      }
+    }
+
+    async function submitReply(ticketId) {
+      const content = document.getElementById('replyContent').value.trim();
+      const fileInput = document.getElementById('replyFileInput');
+      
+      if (!content) {
+        alert('답변 내용을 입력해주세요.');
+        return;
+      }
+      
+      const button = event.target;
+      button.disabled = true;
+      button.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>&nbsp; 전송 중...';
+      
+      try {
+        let attachments = [];
+        
+        // 파일 업로드 처리 (실제 Supabase Storage 연동 필요)
+        if (fileInput.files.length > 0) {
+          // TODO: Supabase Storage에 파일 업로드 로직 구현
+          // 현재는 파일 첨부 없이 답변만 전송
+          alert('파일 업로드 기능은 Supabase Storage 설정 후 사용 가능합니다.');
+        }
+        
+        const response = await fetch('/admin/api/support-tickets/' + ticketId + '/reply', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('admin_session_token')
+          },
+          body: JSON.stringify({
+            reply_content: content,
+            attachments: attachments
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error('답변 전송 실패');
+        }
+        
+        alert('답변이 성공적으로 전송되었습니다.');
+        closeReplyModal();
+        loadTicketDetailPage(ticketId); // 페이지 새로고침
+        
+      } catch (error) {
+        console.error('답변 전송 오류:', error);
+        alert('답변 전송 중 오류가 발생했습니다.');
+        button.disabled = false;
+        button.innerHTML = '<i class="fas fa-paper-plane"></i>&nbsp; 답장 전송';
+      }
+    }
+
+    // ==================== 원격 지원 관리 페이지 ====================
+    async function loadRemoteSupportPage() {
+      const mainContent = document.getElementById('mainContent');
+      
+      mainContent.innerHTML = '<h1 class="title">원격 지원 관리</h1>' +
+        '<div class="box">' +
+          '<div class="columns is-multiline">' +
+            '<div class="column is-3">' +
+              '<div class="field">' +
+                '<label class="label">약국명</label>' +
+                '<div class="control">' +
+                  '<input class="input" type="text" id="remotePharmacyName" placeholder="약국명 검색">' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-3">' +
+              '<div class="field">' +
+                '<label class="label">약사명</label>' +
+                '<div class="control">' +
+                  '<input class="input" type="text" id="remotePharmacistName" placeholder="약사명 검색">' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2">' +
+              '<div class="field">' +
+                '<label class="label">상태</label>' +
+                '<div class="control">' +
+                  '<div class="select is-fullwidth">' +
+                    '<select id="remoteStatusFilter">' +
+                      '<option value="">전체</option>' +
+                      '<option value="requested">요청됨</option>' +
+                      '<option value="in_progress">진행중</option>' +
+                      '<option value="completed">완료</option>' +
+                      '<option value="cancelled">취소</option>' +
+                    '</select>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2">' +
+              '<div class="field">' +
+                '<label class="label">시작일</label>' +
+                '<div class="control">' +
+                  '<input class="input" type="date" id="remoteStartDate">' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2">' +
+              '<div class="field">' +
+                '<label class="label">종료일</label>' +
+                '<div class="control">' +
+                  '<input class="input" type="date" id="remoteEndDate">' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2 is-offset-8">' +
+              '<div class="field">' +
+                '<div class="control">' +
+                  '<button class="button is-primary is-fullwidth" onclick="searchRemoteSessions()">' +
+                    '<i class="fas fa-search"></i>&nbsp; 검색' +
+                  '</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-2">' +
+              '<div class="field">' +
+                '<div class="control">' +
+                  '<button class="button is-light is-fullwidth" onclick="clearRemoteFilters()">' +
+                    '<i class="fas fa-redo"></i>&nbsp; 초기화' +
+                  '</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="box">' +
+          '<div class="table-container">' +
+            '<table class="table is-fullwidth is-striped is-hoverable">' +
+              '<thead>' +
+                '<tr>' +
+                  '<th style="width: 60px;">No.</th>' +
+                  '<th>세션번호</th>' +
+                  '<th>약국명</th>' +
+                  '<th>약사명</th>' +
+                  '<th>연락처</th>' +
+                  '<th>요청일시</th>' +
+                  '<th>문제유형</th>' +
+                  '<th>상태</th>' +
+                  '<th>상담원</th>' +
+                  '<th style="width: 100px;">작업</th>' +
+                '</tr>' +
+              '</thead>' +
+              '<tbody id="remoteTableBody">' +
+                '<tr>' +
+                  '<td colspan="10" class="has-text-centered">' +
+                    '<i class="fas fa-spinner fa-pulse"></i> 로딩 중...' +
+                  '</td>' +
+                '</tr>' +
+              '</tbody>' +
+            '</table>' +
+          '</div>' +
+          '<nav class="pagination is-centered" role="navigation" id="remotePagination">' +
+          '</nav>' +
+        '</div>';
+      
+      // 초기 데이터 로드
+      searchRemoteSessions();
+    }
+
+    let currentRemotePage = 1;
+    const remotePageSize = 20;
+    let allRemoteSessions = [];
+
+    async function searchRemoteSessions(page = 1) {
+      currentRemotePage = page;
+      
+      const status = document.getElementById('remoteStatusFilter')?.value || '';
+      const startDate = document.getElementById('remoteStartDate')?.value || '';
+      const endDate = document.getElementById('remoteEndDate')?.value || '';
+      const pharmacyName = document.getElementById('remotePharmacyName')?.value?.trim() || '';
+      const pharmacistName = document.getElementById('remotePharmacistName')?.value?.trim() || '';
+      
+      const tbody = document.getElementById('remoteTableBody');
+      tbody.innerHTML = '<tr><td colspan="10" class="has-text-centered"><i class="fas fa-spinner fa-pulse"></i> 로딩 중...</td></tr>';
+      
+      try {
+        const params = new URLSearchParams({
+          page: page,
+          limit: remotePageSize,
+          status: status,
+          startDate: startDate,
+          endDate: endDate
+        });
+        
+        const response = await fetch('/admin/api/remote-sessions?' + params.toString(), {
+          headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('admin_session_token')
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('데이터 로드 실패');
+        }
+        
+        const data = await response.json();
+        allRemoteSessions = data.sessions || [];
+        
+        // 약국명/약사명 필터링 (클라이언트 측)
+        let filteredSessions = allRemoteSessions;
+        if (pharmacyName || pharmacistName) {
+          filteredSessions = allRemoteSessions.filter(function(session) {
+            const matchPharmacy = !pharmacyName || 
+              (session.pharmacy_name && session.pharmacy_name.toLowerCase().indexOf(pharmacyName.toLowerCase()) !== -1);
+            const matchPharmacist = !pharmacistName || 
+              (session.pharmacist_name && session.pharmacist_name.toLowerCase().indexOf(pharmacistName.toLowerCase()) !== -1);
+            return matchPharmacy && matchPharmacist;
+          });
+        }
+        
+        renderRemoteSessions(filteredSessions, data.total, data.page, data.totalPages);
+        
+      } catch (error) {
+        console.error('원격 지원 조회 오류:', error);
+        tbody.innerHTML = '<tr><td colspan="10" class="has-text-centered has-text-danger">데이터를 불러오는데 실패했습니다.</td></tr>';
+      }
+    }
+
+    function renderRemoteSessions(sessions, total, currentPage, totalPages) {
+      const tbody = document.getElementById('remoteTableBody');
+      
+      if (!sessions || sessions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="has-text-centered">원격 지원 세션이 없습니다.</td></tr>';
+        return;
+      }
+      
+      let html = '';
+      sessions.forEach(function(session, index) {
+        const num = (currentPage - 1) * remotePageSize + index + 1;
+        
+        const statusBadge = getRemoteStatusBadge(session.status);
+        const requestedAt = new Date(session.requested_at).toLocaleString('ko-KR');
+        
+        html += '<tr>' +
+          '<td>' + num + '</td>' +
+          '<td><a onclick="loadRemoteDetailPage(\'' + session.session_id + '\')" style="cursor: pointer; color: #3273dc;">' + 
+            (session.session_number || '-') + '</a></td>' +
+          '<td>' + (session.pharmacy_name || '-') + '</td>' +
+          '<td>' + (session.pharmacist_name || '-') + '</td>' +
+          '<td>' + (session.customer_phone || '-') + '</td>' +
+          '<td>' + requestedAt + '</td>' +
+          '<td>' + (session.issue_category || '-') + '</td>' +
+          '<td>' + statusBadge + '</td>' +
+          '<td>' + (session.agent_email || '-') + '</td>' +
+          '<td>' +
+            '<button class="button is-small is-info" onclick="loadRemoteDetailPage(\'' + session.session_id + '\')">' +
+              '<i class="fas fa-eye"></i>' +
+            '</button>' +
+          '</td>' +
+        '</tr>';
+      });
+      
+      tbody.innerHTML = html;
+      renderRemotePagination(total, currentPage, totalPages);
+    }
+
+    function getRemoteStatusBadge(status) {
+      switch(status) {
+        case 'requested':
+          return '<span class="tag is-warning">요청됨</span>';
+        case 'in_progress':
+          return '<span class="tag is-info">진행중</span>';
+        case 'completed':
+          return '<span class="tag is-success">완료</span>';
+        case 'cancelled':
+          return '<span class="tag is-light">취소</span>';
+        default:
+          return '<span class="tag">' + status + '</span>';
+      }
+    }
+
+    function renderRemotePagination(total, currentPage, totalPages) {
+      const pagination = document.getElementById('remotePagination');
+      
+      if (totalPages <= 1) {
+        pagination.innerHTML = '';
+        return;
+      }
+      
+      let html = '<a class="pagination-previous" ' + (currentPage === 1 ? 'disabled' : 'onclick="searchRemoteSessions(' + (currentPage - 1) + ')"') + '>이전</a>';
+      html += '<a class="pagination-next" ' + (currentPage === totalPages ? 'disabled' : 'onclick="searchRemoteSessions(' + (currentPage + 1) + ')"') + '>다음</a>';
+      html += '<ul class="pagination-list">';
+      
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+          html += '<li><a class="pagination-link ' + (i === currentPage ? 'is-current' : '') + '" onclick="searchRemoteSessions(' + i + ')">' + i + '</a></li>';
+        } else if (i === currentPage - 3 || i === currentPage + 3) {
+          html += '<li><span class="pagination-ellipsis">&hellip;</span></li>';
+        }
+      }
+      
+      html += '</ul>';
+      pagination.innerHTML = html;
+    }
+
+    function clearRemoteFilters() {
+      document.getElementById('remoteStatusFilter').value = '';
+      document.getElementById('remoteStartDate').value = '';
+      document.getElementById('remoteEndDate').value = '';
+      document.getElementById('remotePharmacyName').value = '';
+      document.getElementById('remotePharmacistName').value = '';
+      searchRemoteSessions(1);
+    }
+
+    // 원격 지원 상세 페이지
+    async function loadRemoteDetailPage(sessionId) {
+      const mainContent = document.getElementById('mainContent');
+      
+      mainContent.innerHTML = '<div class="has-text-centered"><i class="fas fa-spinner fa-pulse fa-3x"></i></div>';
+      
+      try {
+        const response = await fetch('/admin/api/remote-sessions/' + sessionId, {
+          headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('admin_session_token')
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('데이터 로드 실패');
+        }
+        
+        const session = await response.json();
+        
+        const requestedAt = new Date(session.requested_at).toLocaleString('ko-KR');
+        const connectedAt = session.connected_at ? new Date(session.connected_at).toLocaleString('ko-KR') : '-';
+        const endedAt = session.ended_at ? new Date(session.ended_at).toLocaleString('ko-KR') : '-';
+        
+        mainContent.innerHTML = 
+          '<nav class="breadcrumb" aria-label="breadcrumbs">' +
+            '<ul>' +
+              '<li><a onclick="loadRemoteSupportPage()">원격 지원 관리</a></li>' +
+              '<li class="is-active"><a>' + (session.session_number || '상세') + '</a></li>' +
+            '</ul>' +
+          '</nav>' +
+          '<h1 class="title">원격 지원 상세</h1>' +
+          '<div class="columns">' +
+            '<div class="column is-8">' +
+              '<div class="box">' +
+                '<h2 class="subtitle">기본 정보</h2>' +
+                '<table class="table is-fullwidth">' +
+                  '<tbody>' +
+                    '<tr><th style="width: 150px;">세션 번호</th><td>' + (session.session_number || '-') + '</td></tr>' +
+                    '<tr><th>상태</th><td>' + getRemoteStatusBadge(session.status) + '</td></tr>' +
+                    '<tr><th>약국명</th><td>' + (session.pharmacy_name || '-') + '</td></tr>' +
+                    '<tr><th>약사명</th><td>' + (session.pharmacist_name || '-') + '</td></tr>' +
+                    '<tr><th>이메일</th><td>' + (session.email || '-') + '</td></tr>' +
+                    '<tr><th>연락처</th><td>' + (session.customer_phone || '-') + '</td></tr>' +
+                  '</tbody>' +
+                '</table>' +
+              '</div>' +
+              '<div class="box">' +
+                '<h2 class="subtitle">세션 정보</h2>' +
+                '<table class="table is-fullwidth">' +
+                  '<tbody>' +
+                    '<tr><th style="width: 150px;">요청일시</th><td>' + requestedAt + '</td></tr>' +
+                    '<tr><th>시작일시</th><td>' + connectedAt + '</td></tr>' +
+                    '<tr><th>종료일시</th><td>' + endedAt + '</td></tr>' +
+                    '<tr><th>상담원</th><td>' + (session.agent_email || '-') + '</td></tr>' +
+                  '</tbody>' +
+                '</table>' +
+              '</div>' +
+              '<div class="box" style="border: 2px solid #3273dc;">' +
+                '<h2 class="subtitle">' +
+                  '<i class="fas fa-edit"></i> 상담 내용 작성 ' +
+                  '<span class="tag is-info is-light">아래 내용 작성 후 하단 "전체 저장" 버튼 클릭</span>' +
+                '</h2>' +
+                '<div class="field">' +
+                  '<label class="label">현재 상태 <span class="has-text-danger">*</span></label>' +
+                  '<div class="control">' +
+                    '<div class="select is-fullwidth">' +
+                      '<select id="sessionStatus">' +
+                        '<option value="requested" ' + (session.status === 'requested' ? 'selected' : '') + '>요청됨</option>' +
+                        '<option value="in_progress" ' + (session.status === 'in_progress' ? 'selected' : '') + '>진행중</option>' +
+                        '<option value="completed" ' + (session.status === 'completed' ? 'selected' : '') + '>완료</option>' +
+                        '<option value="cancelled" ' + (session.status === 'cancelled' ? 'selected' : '') + '>취소</option>' +
+                      '</select>' +
+                    '</div>' +
+                  '</div>' +
+                  '<p class="help">상태를 변경하면 자동으로 시작/종료 시간이 기록됩니다</p>' +
+                '</div>' +
+                '<div class="field">' +
+                  '<label class="label">접속 메모</label>' +
+                  '<div class="control">' +
+                    '<textarea class="textarea" id="connectionNote" rows="2" placeholder="예: TeamViewer ID 123-456-789로 접속, 전화 통화 후 접속 진행...">' + (session.connection_note || '') + '</textarea>' +
+                  '</div>' +
+                  '<p class="help">원격 접속 방식이나 ID 등을 기록하세요</p>' +
+                '</div>' +
+                '<div class="field">' +
+                  '<label class="label">문제 유형</label>' +
+                  '<div class="control">' +
+                    '<input class="input" type="text" id="issueCategory" value="' + (session.issue_category || '') + '" placeholder="예: 설치 오류, 바코드 인식, 성능 문제">' +
+                  '</div>' +
+                '</div>' +
+                '<div class="field">' +
+                  '<label class="label">상담 메모</label>' +
+                  '<div class="control">' +
+                    '<textarea class="textarea" id="notes" rows="5" placeholder="상담 진행 과정, 고객 요청 사항, 발견한 문제점 등을 상세히 기록하세요...">' + (session.notes || '') + '</textarea>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="field">' +
+                  '<label class="label">해결 방법</label>' +
+                  '<div class="control">' +
+                    '<textarea class="textarea" id="resolution" rows="4" placeholder="문제 해결을 위해 취한 조치, 안내 사항 등을 요약하세요...">' + (session.resolution || '') + '</textarea>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="field">' +
+                  '<div class="control">' +
+                    '<button class="button is-primary is-large is-fullwidth" onclick="updateRemoteSession(\'' + sessionId + '\')" style="height: 60px;">' +
+                      '<span class="icon is-medium"><i class="fas fa-save"></i></span>' +
+                      '<span style="font-size: 1.1rem; font-weight: bold;">전체 저장 (상태 + 모든 메모)</span>' +
+                    '</button>' +
+                  '</div>' +
+                  '<p class="help has-text-centered mt-2">위 모든 필드의 내용이 함께 저장됩니다</p>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="column is-4">' +
+              '<div class="box">' +
+                '<h2 class="subtitle">목록으로</h2>' +
+                '<div class="field">' +
+                  '<div class="control">' +
+                    '<button class="button is-light is-fullwidth" onclick="loadRemoteSupportPage()">' +
+                      '<i class="fas fa-arrow-left"></i>&nbsp; 목록으로 돌아가기' +
+                    '</button>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="box" style="background-color: #f0f9ff; border: 2px solid #3298dc;">' +
+                '<h2 class="subtitle">' +
+                  '<i class="fas fa-bolt"></i> 빠른 상태 변경 ' +
+                  '<span class="tag is-warning is-light">주의</span>' +
+                '</h2>' +
+                '<div class="notification is-warning is-light">' +
+                  '<p class="is-size-7"><strong>⚠️ 주의사항:</strong></p>' +
+                  '<p class="is-size-7">아래 버튼은 <strong>상태만</strong> 즉시 변경합니다.</p>' +
+                  '<p class="is-size-7">작성한 메모는 저장되지 않으니, 메모 작성 후에는 위의 <strong>"전체 저장"</strong> 버튼을 사용하세요!</p>' +
+                '</div>' +
+                '<div class="buttons">' +
+                  '<button class="button is-info is-fullwidth" onclick="quickUpdateStatus(\'' + sessionId + '\', \'in_progress\')" ' + 
+                    (session.status === 'in_progress' ? 'disabled' : '') + '>' +
+                    '<i class="fas fa-play"></i>&nbsp; 진행중으로만 변경' +
+                  '</button>' +
+                '</div>' +
+                '<div class="buttons">' +
+                  '<button class="button is-success is-fullwidth" onclick="quickUpdateStatus(\'' + sessionId + '\', \'completed\')" ' + 
+                    (session.status === 'completed' ? 'disabled' : '') + '>' +
+                    '<i class="fas fa-check"></i>&nbsp; 완료로만 변경' +
+                  '</button>' +
+                '</div>' +
+                '<div class="buttons">' +
+                  '<button class="button is-light is-fullwidth" onclick="quickUpdateStatus(\'' + sessionId + '\', \'cancelled\')" ' + 
+                    (session.status === 'cancelled' ? 'disabled' : '') + '>' +
+                    '<i class="fas fa-times"></i>&nbsp; 취소로만 변경' +
+                  '</button>' +
+                '</div>' +
+                '<p class="help has-text-centered">메모 없이 상태만 빠르게 변경할 때 사용</p>' +
+              '</div>' +
+              '<div class="box" style="background-color: #f5f5f5;">' +
+                '<h2 class="subtitle"><i class="fas fa-info-circle"></i> 사용 가이드</h2>' +
+                '<div class="content is-size-7">' +
+                  '<p><strong>📝 메모와 함께 저장:</strong></p>' +
+                  '<ol>' +
+                    '<li>상태 선택</li>' +
+                    '<li>접속 메모, 문제 유형, 상담 메모, 해결 방법 작성</li>' +
+                    '<li><strong>"전체 저장"</strong> 버튼 클릭</li>' +
+                  '</ol>' +
+                  '<p><strong>⚡ 상태만 빠르게 변경:</strong></p>' +
+                  '<ol>' +
+                    '<li>"빠른 상태 변경" 섹션의 버튼 클릭</li>' +
+                    '<li>확인 후 즉시 반영 (메모 저장 안 됨)</li>' +
+                  '</ol>' +
+                  '<p class="has-text-danger"><strong>⚠️ 중요:</strong></p>' +
+                  '<ul>' +
+                    '<li>메모를 작성했다면 반드시 "전체 저장" 버튼을 눌러야 합니다</li>' +
+                    '<li>빠른 변경 버튼은 작성한 메모를 저장하지 않습니다</li>' +
+                  '</ul>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        
+      } catch (error) {
+        console.error('원격 지원 상세 조회 오류:', error);
+        mainContent.innerHTML = '<div class="notification is-danger">데이터를 불러오는데 실패했습니다.</div>';
+      }
+    }
+
+    async function updateRemoteSession(sessionId) {
+      const status = document.getElementById('sessionStatus').value;
+      const connectionNote = document.getElementById('connectionNote').value.trim();
+      const issueCategory = document.getElementById('issueCategory').value.trim();
+      const notes = document.getElementById('notes').value.trim();
+      const resolution = document.getElementById('resolution').value.trim();
+      
+      try {
+        const response = await fetch('/admin/api/remote-sessions/' + sessionId, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('admin_session_token')
+          },
+          body: JSON.stringify({
+            status: status,
+            connection_note: connectionNote,
+            issue_category: issueCategory,
+            notes: notes,
+            resolution: resolution
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error('업데이트 실패');
+        }
+        
+        alert('원격 지원 세션이 업데이트되었습니다.');
+        loadRemoteDetailPage(sessionId); // 새로고침
+        
+      } catch (error) {
+        console.error('원격 지원 업데이트 오류:', error);
+        alert('업데이트 중 오류가 발생했습니다.');
+      }
+    }
+
+    async function quickUpdateStatus(sessionId, newStatus) {
+      if (!confirm('상태를 "' + getStatusText(newStatus) + '"(으)로 변경하시겠습니까?')) {
+        return;
+      }
+      
+      try {
+        const response = await fetch('/admin/api/remote-sessions/' + sessionId, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('admin_session_token')
+          },
+          body: JSON.stringify({
+            status: newStatus
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error('업데이트 실패');
+        }
+        
+        alert('상태가 변경되었습니다.');
+        loadRemoteDetailPage(sessionId); // 새로고침
+        
+      } catch (error) {
+        console.error('상태 변경 오류:', error);
+        alert('상태 변경 중 오류가 발생했습니다.');
+      }
+    }
+
+    function getStatusText(status) {
+      switch(status) {
+        case 'requested': return '요청됨';
+        case 'in_progress': return '진행중';
+        case 'completed': return '완료';
+        case 'cancelled': return '취소';
+        default: return status;
+      }
+    }
+  
     loadRecentActivities();
   </script>
 </body>

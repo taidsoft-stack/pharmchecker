@@ -554,6 +554,7 @@ async function handleCancelledSubscriptions() {
           .update({
             status: 'cancelled',
             canceled_at: new Date().toISOString(),
+            next_billing_at: null,
             updated_at: new Date().toISOString(),
           })
           .eq('subscription_id', sub.subscription_id);
@@ -615,9 +616,13 @@ async function runRecurringBillingScheduler() {
     // ⚠️ current_period_start IS NOT NULL = 이미 유료 주기 시작된 구독만
     const { data: subscriptions, error } = await supabase
       .from('user_subscriptions')
-      .select('*')
+      .select(`
+        *,
+        users!inner(is_deleted)
+      `)
       .eq('status', 'active')
       .eq('cancel_at_period_end', false)  // 해지 예약된 구독 제외
+      .eq('users.is_deleted', false)      // ✅ 탈퇴 회원 제외
       .not('current_period_start', 'is', null)  // ⚠️ 무료 기간 제외
       .lte('current_period_end', yesterday.toISOString());
 

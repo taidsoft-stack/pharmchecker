@@ -82,7 +82,8 @@ router.post('/api/user/withdraw', async function (req, res) {
         .from('user_subscriptions')
         .update({
           status: 'cancelled',
-          canceled_at: new Date().toISOString()
+          canceled_at: new Date().toISOString(),
+          next_billing_at: null
         })
         .eq('user_id', userId)
         .in('status', ['active', 'trial']);

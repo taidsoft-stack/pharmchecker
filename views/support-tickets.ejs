@@ -472,8 +472,26 @@
         <p>문의 내역을 불러오는 중...</p>
       </div>
 
-      <div id="tickets-container" style="display:none;">
-        <!-- 문의 목록이 여기에 표시됩니다 -->
+      <!-- 문의 목록 페이지 -->
+      <div id="tickets-list-page" style="display:none;">
+        <div id="tickets-container">
+          <!-- 문의 목록이 여기에 표시됩니다 -->
+        </div>
+      </div>
+
+      <!-- 문의 상세 페이지 -->
+      <div id="ticket-detail-page" style="display:none;">
+        <div class="box">
+          <nav class="breadcrumb" aria-label="breadcrumbs">
+            <ul>
+              <li><a href="#" onclick="backToList(); return false;">문의 목록</a></li>
+              <li class="is-active"><a href="#" aria-current="page">문의 상세</a></li>
+            </ul>
+          </nav>
+          <div id="ticket-detail-content">
+            <!-- 상세 내용이 여기에 표시됩니다 -->
+          </div>
+        </div>
       </div>
 
       <div id="empty-state" class="empty-state" style="display:none;">
@@ -497,6 +515,7 @@
 
   <script>
     let ticketsData = [];
+    let currentView = 'list'; // 'list' or 'detail'
 
     // 페이지 로드 시 문의 목록 불러오기
     async function loadTickets() {
@@ -519,7 +538,7 @@
         }
 
         ticketsData = data.tickets;
-        renderTickets();
+        renderTicketsList();
       } catch (error) {
         console.error('Error loading tickets:', error);
         document.getElementById('loading').innerHTML = `
@@ -531,106 +550,260 @@
     }
 
     // 문의 목록 렌더링
-    function renderTickets() {
+    function renderTicketsList() {
       const loading = document.getElementById('loading');
+      const listPage = document.getElementById('tickets-list-page');
       const container = document.getElementById('tickets-container');
       const emptyState = document.getElementById('empty-state');
+      const fixedButtons = document.querySelector('.fixed-bottom-buttons');
+      const remoteButton = document.querySelector('.remote-support-button');
 
       loading.style.display = 'none';
 
       if (ticketsData.length === 0) {
         emptyState.style.display = 'block';
+        if (fixedButtons) fixedButtons.style.display = 'block'; // 빈 상태에서도 버튼 표시
+        if (remoteButton) remoteButton.style.display = 'block'; // 원격 지원 버튼 표시
         return;
       }
 
-      container.style.display = 'block';
+      listPage.style.display = 'block';
+      currentView = 'list';
+      
+      // 목록 페이지에서는 하단 버튼 표시
+      if (fixedButtons) fixedButtons.style.display = 'block';
+      if (remoteButton) remoteButton.style.display = 'block';
 
-      const ticketsHtml = ticketsData.map(ticket => {
-        const statusText = getStatusText(ticket.status);
-        const statusClass = `status-${ticket.status}`;
-        const typeText = ticket.ticket_type === 'question' ? '일반 문의' : '원격 지원';
-        const hasReplies = ticket.support_replies && ticket.support_replies.length > 0;
-        const attachmentCount = ticket.support_attachments ? ticket.support_attachments.length : 0;
-        const createdDate = new Date(ticket.created_at).toLocaleDateString('ko-KR', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
+      const ticketsHtml = `
+        <div class="box">
+          <div class="table-container">
+            <table class="table is-fullwidth is-striped is-hoverable">
+              <thead>
+                <tr>
+                  <th style="width: 60px;">No.</th>
+                  <th>제목</th>
+                  <th style="width: 100px;">유형</th>
+                  <th style="width: 120px;">상태</th>
+                  <th style="width: 100px;">답변 여부</th>
+                  <th style="width: 180px;">작성일시</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${ticketsData.map((ticket, index) => {
+                  const statusText = getStatusText(ticket.status);
+                  const statusColor = ticket.status === 'open' ? 'is-danger' : ticket.status === 'answered' ? 'is-success' : 'is-light';
+                  const typeText = ticket.ticket_type === 'question' ? '일반 문의' : '원격 지원';
+                  const hasReplies = ticket.support_replies && ticket.support_replies.length > 0;
+                  const createdDate = new Date(ticket.created_at).toLocaleString('ko-KR', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
 
-        return `
-          <div class="card ticket-card" onclick="toggleTicketDetail('${ticket.ticket_id}')">
-            <div class="card-content">
-              <div class="level is-mobile">
-                <div class="level-left">
-                  <div class="level-item">
-                    <span class="type-badge">${typeText}</span>
-                  </div>
-                  <div class="level-item">
-                    <span class="status-badge ${statusClass}">${statusText}</span>
-                  </div>
-                </div>
-                <div class="level-right">
-                  ${hasReplies ? '<div class="level-item"><span class="reply-indicator">답변 완료</span></div>' : ''}
-                </div>
-              </div>
-
-              <div class="content">
-                <h4 class="title is-5" style="margin-top:0.5rem; margin-bottom:0.5rem;">${escapeHtml(ticket.title)}</h4>
-                <p class="ticket-meta">
-                  ${createdDate}
-                  ${attachmentCount > 0 ? `<span class="attachment-count">📎 첨부파일 ${attachmentCount}개</span>` : ''}
-                </p>
-              </div>
-
-              <!-- 상세 내용 (토글) -->
-              <div id="detail-${ticket.ticket_id}" class="ticket-detail">
-                <div class="content">
-                  <p style="white-space: pre-wrap;">${escapeHtml(ticket.content)}</p>
-                </div>
-
-                ${attachmentCount > 0 ? `
-                  <div style="margin-top: 1rem;">
-                    <strong>첨부파일:</strong><br>
-                    ${ticket.support_attachments.map(att => `
-                      <span class="attachment-link">
-                        📎 ${escapeHtml(att.file_name)} (${formatFileSize(att.file_size)})
-                      </span>
-                    `).join('')}
-                  </div>
-                ` : ''}
-
-                ${hasReplies ? ticket.support_replies.map(reply => `
-                  <div class="reply-box">
-                    <div class="reply-header">관리자 답변</div>
-                    <div class="reply-content">
-                      <p style="white-space: pre-wrap;">${escapeHtml(reply.reply_content)}</p>
-                      <p class="ticket-meta" style="margin-top: 0.5rem;">
-                        ${new Date(reply.created_at).toLocaleDateString('ko-KR', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                `).join('') : ''}
-              </div>
-            </div>
+                  return `
+                    <tr style="cursor: pointer;" onclick="viewTicketDetail('${ticket.ticket_id}')">
+                      <td>${ticketsData.length - index}</td>
+                      <td>
+                        <a href="#" onclick="viewTicketDetail('${ticket.ticket_id}'); return false;" style="color: #3273dc; text-decoration: underline;">
+                          ${escapeHtml(ticket.title)}
+                        </a>
+                      </td>
+                      <td>${typeText}</td>
+                      <td><span class="tag ${statusColor}">${statusText}</span></td>
+                      <td>
+                        ${hasReplies 
+                          ? '<span class="tag is-success">답변완료</span>' 
+                          : '<span class="tag is-warning">미답변</span>'}
+                      </td>
+                      <td>${createdDate}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
           </div>
-        `;
-      }).join('');
+        </div>
+      `;
 
       container.innerHTML = ticketsHtml;
     }
 
-    // 문의 상세 토글
-    function toggleTicketDetail(ticketId) {
-      const detail = document.getElementById(`detail-${ticketId}`);
-      detail.classList.toggle('is-active');
+    // 문의 상세 보기
+    async function viewTicketDetail(ticketId) {
+      try {
+        const userId = localStorage.getItem('userId');
+        const response = await fetch(`/support/api/tickets/${ticketId}`, {
+          headers: {
+            'X-User-Id': userId
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('문의를 불러오는데 실패했습니다.');
+        }
+
+        const data = await response.json();
+        const ticket = data.ticket;
+
+        renderTicketDetail(ticket);
+      } catch (error) {
+        console.error('Error loading ticket detail:', error);
+        alert('문의 상세 정보를 불러오는데 실패했습니다.');
+      }
+    }
+
+    // 문의 상세 렌더링
+    function renderTicketDetail(ticket) {
+      const listPage = document.getElementById('tickets-list-page');
+      const detailPage = document.getElementById('ticket-detail-page');
+      const detailContent = document.getElementById('ticket-detail-content');
+      const fixedButtons = document.querySelector('.fixed-bottom-buttons');
+      const remoteButton = document.querySelector('.remote-support-button');
+
+      listPage.style.display = 'none';
+      detailPage.style.display = 'block';
+      currentView = 'detail';
+      
+      // 상세 페이지에서는 하단 버튼 숨김
+      if (fixedButtons) fixedButtons.style.display = 'none';
+      if (remoteButton) remoteButton.style.display = 'none';
+
+      const statusText = getStatusText(ticket.status);
+      const statusClass = `status-${ticket.status}`;
+      const typeText = ticket.ticket_type === 'question' ? '일반 문의' : '원격 지원';
+      const hasReplies = ticket.support_replies && ticket.support_replies.length > 0;
+      const attachments = ticket.support_attachments || [];
+      const createdDate = new Date(ticket.created_at).toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      let attachmentHTML = '';
+      if (attachments.length > 0) {
+        attachmentHTML = `
+          <div style="margin-top: 1rem;">
+            <strong>첨부파일:</strong><br>
+            <div style="margin-top: 0.5rem;">
+              ${attachments.map(att => {
+                const isImage = att.mime_type && att.mime_type.startsWith('image/');
+                const fileUrl = att.file_url || att.download_url;
+                if (isImage && fileUrl) {
+                  return `
+                    <div class="box" style="max-width: 500px; margin-bottom: 1rem;">
+                      <p><strong>${escapeHtml(att.file_name)}</strong></p>
+                      <img src="${fileUrl}" alt="${escapeHtml(att.file_name)}" style="max-width: 100%; height: auto; border: 1px solid #dbdbdb; border-radius: 4px; margin-top: 0.5rem;">
+                    </div>
+                  `;
+                } else if (fileUrl) {
+                  return `
+                    <p style="margin-bottom: 0.5rem;">
+                      <a href="${fileUrl}" target="_blank" download="${escapeHtml(att.file_name)}" class="button is-small is-link is-outlined">
+                        📎 ${escapeHtml(att.file_name)} (${formatFileSize(att.file_size)})
+                      </a>
+                    </p>
+                  `;
+                } else {
+                  return `<p>📎 ${escapeHtml(att.file_name)} (다운로드 불가)</p>`;
+                }
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      let repliesHTML = '';
+      if (hasReplies) {
+        repliesHTML = `
+          <hr>
+          <div style="margin-top: 1.5rem;">
+            <strong>답변 내역 (${ticket.support_replies.length}건)</strong>
+            ${ticket.support_replies.map((reply, idx) => `
+              <div class="box" style="background: #f0f8ff; border-left: 4px solid #3273dc; margin-top: 1rem;">
+                <p class="is-size-7 has-text-grey mb-2">답변 #${idx + 1} | ${new Date(reply.created_at).toLocaleDateString('ko-KR', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}</p>
+                <div class="content" style="white-space: pre-wrap;">${escapeHtml(reply.reply_content)}</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      detailContent.innerHTML = `
+        <div class="columns">
+          <div class="column is-8">
+            <div class="field">
+              <label class="label">제목</label>
+              <p class="control">
+                <input class="input" type="text" value="${escapeHtml(ticket.title)}" readonly>
+              </p>
+            </div>
+            <div class="field">
+              <label class="label">문의 유형</label>
+              <p>${typeText}</p>
+            </div>
+            <div class="field">
+              <label class="label">작성일시</label>
+              <p>${createdDate}</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="box has-background-light">
+              <div class="field">
+                <label class="label">상태</label>
+                <p><span class="tag is-large ${statusClass === 'status-open' ? 'is-danger' : statusClass === 'status-answered' ? 'is-success' : 'is-light'}">${statusText}</span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <hr>
+        <div class="field">
+          <label class="label">문의 내용</label>
+          <div class="content box" style="white-space: pre-wrap; background: #fafafa; min-height: 150px;">
+            ${escapeHtml(ticket.content)}
+          </div>
+        </div>
+        ${attachmentHTML}
+        ${repliesHTML}
+        <hr>
+        <button class="button is-light" onclick="backToList()">
+          <span>← 목록으로</span>
+        </button>
+      `;
+    }
+
+    // 목록으로 돌아가기
+    function backToList() {
+      const listPage = document.getElementById('tickets-list-page');
+      const detailPage = document.getElementById('ticket-detail-page');
+      const fixedButtons = document.querySelector('.fixed-bottom-buttons');
+      const remoteButton = document.querySelector('.remote-support-button');
+
+      listPage.style.display = 'block';
+      detailPage.style.display = 'none';
+      currentView = 'list';
+      
+      // 목록으로 돌아갈 때 하단 버튼 표시
+      if (fixedButtons) fixedButtons.style.display = 'block';
+      if (remoteButton) remoteButton.style.display = 'block';
+    }
+    // 목록으로 돌아가기
+    function backToList() {
+      const listPage = document.getElementById('tickets-list-page');
+      const detailPage = document.getElementById('ticket-detail-page');
+
+      listPage.style.display = 'block';
+      detailPage.style.display = 'none';
+      currentView = 'list';
     }
 
     // 상태 텍스트
@@ -645,6 +818,7 @@
 
     // 파일 크기 포맷
     function formatFileSize(bytes) {
+      if (!bytes) return '0 B';
       if (bytes < 1024) return bytes + ' B';
       if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
       return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
@@ -652,6 +826,7 @@
 
     // HTML 이스케이프
     function escapeHtml(text) {
+      if (!text) return '';
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;

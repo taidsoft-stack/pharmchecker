@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>모바일 회원 조회 - PharmChecker</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { 
+      background-color: #f5f5f5;
+      padding-bottom: 2rem;
+    }
+    .navbar { 
+      box-shadow: 0 2px 4px rgba(0,0,0,.08);
+      margin-bottom: 1rem;
+    }
+    .search-box {
+      background: white;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,.08);
+    }
+    .user-card {
+      background: white;
+      border-radius: 6px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,.08);
+    }
+    .user-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    .pharmacy-name {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #363636;
+    }
+    .info-row {
+      display: flex;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+    .info-label {
+      min-width: 80px;
+      color: #7a7a7a;
+      font-weight: 600;
+    }
+    .info-value {
+      color: #363636;
+      flex: 1;
+    }
+    .memo-section {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #f5f5f5;
+    }
+    .memo-input {
+      margin-bottom: 0.5rem;
+    }
+    .saved-memo {
+      background-color: #f9f9f9;
+      padding: 0.75rem;
+      border-radius: 4px;
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+    }
+    .saved-memo-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      font-size: 0.75rem;
+      color: #7a7a7a;
+    }
+    .saved-memo-content {
+      color: #363636;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #7a7a7a;
+    }
+    @media (min-width: 769px) {
+      .container {
+        max-width: 960px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- 상단 네비게이션 -->
+  <nav class="navbar is-white" role="navigation">
+    <div class="navbar-brand">
+      <a class="navbar-item" href="/admin">
+        <i class="fas fa-arrow-left"></i>
+      </a>
+      <div class="navbar-item">
+        <strong>📱 모바일 회원 조회</strong>
+      </div>
+    </div>
+    
+    <div class="navbar-menu">
+      <div class="navbar-end">
+        <div class="navbar-item">
+          <span id="adminName"><%= typeof adminName !== 'undefined' ? adminName : '관리자' %></span>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- 검색 필터 -->
+    <div class="search-box">
+      <div class="field">
+        <label class="label">약국명</label>
+        <div class="control has-icons-left">
+          <input class="input" type="text" id="pharmacyNameSearch" placeholder="약국명으로 검색">
+          <span class="icon is-small is-left">
+            <i class="fas fa-store"></i>
+          </span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label">약사명</label>
+        <div class="control has-icons-left">
+          <input class="input" type="text" id="pharmacistNameSearch" placeholder="약사명으로 검색">
+          <span class="icon is-small is-left">
+            <i class="fas fa-user"></i>
+          </span>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="control">
+          <button class="button is-primary is-fullwidth" onclick="searchUsers()">
+            <i class="fas fa-search"></i>&nbsp; 검색
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 회원 목록 -->
+    <div id="userList">
+      <!-- 회원 카드가 여기에 동적으로 추가됩니다 -->
+    </div>
+
+    <!-- 로딩 표시 -->
+    <div id="loadingIndicator" class="has-text-centered" style="display: none;">
+      <p class="has-text-grey">
+        <i class="fas fa-spinner fa-pulse"></i> 로딩 중...
+      </p>
+    </div>
+  </div>
+
+  <script>
+    let sessionToken = null;
+    let currentUsers = [];
+
+    // 페이지 로드 시 인증 확인
+    document.addEventListener('DOMContentLoaded', () => {
+      checkAuth();
+      // 엔터 키로 검색
+      document.getElementById('pharmacyNameSearch').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') searchUsers();
+      });
+      document.getElementById('pharmacistNameSearch').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') searchUsers();
+      });
+    });
+
+    function checkAuth() {
+      sessionToken = localStorage.getItem('admin_session_token');
+      
+      if (!sessionToken) {
+        alert('로그인이 필요합니다.');
+        window.location.href = '/admin/login';
+        return;
+      }
+
+      // 초기 목록 로드 (전체 목록)
+      loadUsers();
+    }
+
+    async function searchUsers() {
+      loadUsers();
+    }
+
+    async function loadUsers() {
+      const pharmacyName = document.getElementById('pharmacyNameSearch').value.trim();
+      const pharmacistName = document.getElementById('pharmacistNameSearch').value.trim();
+
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const userList = document.getElementById('userList');
+      
+      loadingIndicator.style.display = 'block';
+      userList.innerHTML = '';
+
+      try {
+        // API 호출 (회원 목록 조회)
+        const params = new URLSearchParams();
+        if (pharmacyName) params.append('pharmacy_name', pharmacyName);
+        if (pharmacistName) params.append('name', pharmacistName);
+        params.append('limit', '100'); // 모바일에서는 많이 보여주지 않음
+
+        const response = await fetch(`/admin/api/mobile/users?${params.toString()}`, {
+          headers: {
+            'Authorization': `Bearer ${sessionToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            alert('세션이 만료되었습니다. 다시 로그인해주세요.');
+            localStorage.removeItem('admin_session_token');
+            window.location.href = '/admin/login';
+            return;
+          }
+          throw new Error('회원 조회 실패');
+        }
+
+        const data = await response.json();
+        currentUsers = data.users || [];
+        
+        renderUsers(currentUsers);
+      } catch (error) {
+        console.error('검색 오류:', error);
+        alert('회원 조회 중 오류가 발생했습니다.');
+      } finally {
+        loadingIndicator.style.display = 'none';
+      }
+    }
+
+    function renderUsers(users) {
+      const userList = document.getElementById('userList');
+      
+      if (!users || users.length === 0) {
+        userList.innerHTML = '<div class="empty-state"><i class="fas fa-inbox fa-3x"></i><p style="margin-top: 1rem;">검색 결과가 없습니다.</p></div>';
+        return;
+      }
+
+      userList.innerHTML = users.map(user => `
+        <div class="user-card">
+          <div class="user-card-header">
+            <div class="pharmacy-name">${user.pharmacy_name || '약국명 없음'}</div>
+          </div>
+          
+          <div class="info-row">
+            <div class="info-label">주소</div>
+            <div class="info-value">${formatAddress(user)}</div>
+          </div>
+          
+          <div class="info-row">
+            <div class="info-label">약사명</div>
+            <div class="info-value">${user.pharmacist_name || '-'}</div>
+          </div>
+          
+          <div class="info-row">
+            <div class="info-label">전화번호</div>
+            <div class="info-value">${user.pharmacist_phone || '-'}</div>
+          </div>
+
+          <div class="memo-section">
+            <label class="label is-small">메모 작성</label>
+            <div class="field has-addons memo-input">
+              <div class="control is-expanded">
+                <input class="input is-small" type="text" id="memo-${user.user_id}" placeholder="메모를 입력하세요">
+              </div>
+              <div class="control">
+                <button class="button is-small is-primary" onclick="saveMemo('${user.user_id}')">
+                  <i class="fas fa-save"></i>&nbsp; 저장
+                </button>
+              </div>
+            </div>
+
+            <div id="saved-memos-${user.user_id}">
+              ${renderSavedMemos(user.latest_memos || [])}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function formatAddress(user) {
+      const parts = [];
+      if (user.address) parts.push(user.address);
+      if (user.detail_address) parts.push(user.detail_address);
+      return parts.join(' ') || '-';
+    }
+
+    function renderSavedMemos(memos) {
+      if (!memos || memos.length === 0) {
+        return '<p class="help">저장된 메모가 없습니다.</p>';
+      }
+
+      return memos.slice(0, 3).map(memo => `
+        <div class="saved-memo">
+          <div class="saved-memo-header">
+            <span>${memo.admin_email || '알 수 없음'}</span>
+            <span>${new Date(memo.created_at).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+          <div class="saved-memo-content">
+            ${memo.memo && memo.memo.trim() ? memo.memo : '<span style="color: #b5b5b5;">(빈칸)</span>'}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function saveMemo(userId) {
+      const memoInput = document.getElementById(`memo-${userId}`);
+      const memoText = memoInput.value.trim();
+
+      if (!memoText) {
+        alert('메모를 입력해주세요.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`/admin/api/users/${userId}/memos`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${sessionToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            memo: memoText,
+            remarks: '' // 모바일에서는 메모만 사용
+          })
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            alert('세션이 만료되었습니다. 다시 로그인해주세요.');
+            localStorage.removeItem('admin_session_token');
+            window.location.href = '/admin/login';
+            return;
+          }
+          throw new Error('메모 저장 실패');
+        }
+
+        const result = await response.json();
+        
+        // 입력란 초기화
+        memoInput.value = '';
+        
+        // 해당 회원의 메모 목록 갱신
+        await refreshUserMemos(userId);
+        
+        // 성공 알림
+        showSuccessToast('메모가 저장되었습니다.');
+      } catch (error) {
+        console.error('메모 저장 오류:', error);
+        alert('메모 저장 중 오류가 발생했습니다.');
+      }
+    }
+
+    async function refreshUserMemos(userId) {
+      try {
+        const response = await fetch(`/admin/api/users/${userId}/memos`, {
+          headers: {
+            'Authorization': `Bearer ${sessionToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) throw new Error('메모 조회 실패');
+
+        const data = await response.json();
+        const savedMemosContainer = document.getElementById(`saved-memos-${userId}`);
+        
+        if (savedMemosContainer) {
+          savedMemosContainer.innerHTML = renderSavedMemos(data.memos || []);
+        }
+      } catch (error) {
+        console.error('메모 갱신 오류:', error);
+      }
+    }
+
+    function showSuccessToast(message) {
+      // 간단한 토스트 알림
+      const toast = document.createElement('div');
+      toast.style.cssText = `
+        position: fixed;
+        top: 70px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #48c774;
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 4px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        z-index: 9999;
+        font-weight: 600;
+      `;
+      toast.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
+      document.body.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.transition = 'opacity 0.3s';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 2000);
+    }
+  </script>
+</body>
+</html>
