@@ -1059,13 +1059,20 @@
         const data = await response.json();
         
         if (data.success) {
-          // 다운로드 URL로 이동
-          const link = document.createElement('a');
-          link.href = data.downloadUrl;
-          link.download = data.filename;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          // 모든 파일 다운로드
+          for (const file of data.files) {
+            const link = document.createElement('a');
+            link.href = file.downloadUrl;
+            link.download = file.filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // 파일 간 다운로드 간격 (브라우저 차단 방지)
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+          
+          alert(`${data.files.length}개 파일 다운로드를 시작했습니다.`);
         } else {
           alert(data.message || '다운로드에 실패했습니다.');
         }

@@ -2152,28 +2152,46 @@ router.get('/api/download/latest', requireAuth, async (req, res) => {
 
     console.log('조회된 파일 목록:', files?.map(f => f.name));
 
-    // exe 파일만 필터링
-    const exeFiles = files?.filter(file => file.name.toLowerCase().endsWith('.exe')) || [];
+    // exe, bat 파일 필터링
+    const downloadFiles = files?.filter(file => {
+      const name = file.name.toLowerCase();
+      return name.endsWith('.exe') || name.endsWith('.bat');
+    }) || [];
     
-    console.log('exe 파일:', exeFiles?.map(f => f.name));
+    console.log('다운로드 대상 파일:', downloadFiles?.map(f => f.name));
 
-    if (exeFiles.length === 0) {
+    if (downloadFiles.length === 0) {
       return res.status(404).json({ 
         success: false, 
         message: '다운로드 가능한 파일이 없습니다.' 
       });
     }
 
-    // 가장 최신 파일 선택
-    const latestFile = exeFiles[0];
+    // 모든 파일에 대한 Signed URL 생성
+    const fileUrls = await Promise.all(
+      downloadFiles.map(async (file) => {
+        const { data: urlData, error: signError } = await supabaseAdmin.storage
+          .from('releases')
+          .createSignedUrl(`pharmchecker/downloads/${file.name}`, 3600);
+        
+        if (signError) {
+          console.error(`Signed URL 생성 오류 (${file.name}):`, signError);
+          return null;
+        }
+        
+        return {
+          filename: file.name,
+          downloadUrl: urlData.signedUrl,
+          size: file.metadata?.size,
+          createdAt: file.created_at
+        };
+      })
+    );
 
-    // Signed URL 생성 (1시간 유효)
-    const { data: urlData, error: signError } = await supabaseAdmin.storage
-      .from('releases')
-      .createSignedUrl(`pharmchecker/downloads/${latestFile.name}`, 3600); // 3600초 = 1시간
+    // 실패한 파일 제외
+    const validUrls = fileUrls.filter(url => url !== null);
 
-    if (signError) {
-      console.error('Signed URL 생성 오류:', signError);
+    if (validUrls.length === 0) {
       return res.status(500).json({ 
         success: false, 
         message: '다운로드 링크 생성 중 오류가 발생했습니다.' 
@@ -2182,10 +2200,7 @@ router.get('/api/download/latest', requireAuth, async (req, res) => {
 
     res.json({
       success: true,
-      filename: latestFile.name,
-      downloadUrl: urlData.signedUrl,
-      size: latestFile.metadata?.size,
-      createdAt: latestFile.created_at
+      files: validUrls
     });
 
   } catch (error) {
