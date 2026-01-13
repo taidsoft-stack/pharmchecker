@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>로그인 - PharmChecker</title>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * {
       margin: 0;
@@ -68,10 +68,24 @@
       margin-bottom: 40px;
       line-height: 1.6;
     }
-    .google-btn-container {
-      display: flex;
+    .google-btn {
+      display: inline-flex;
+      align-items: center;
       justify-content: center;
-      margin-bottom: 30px;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 500;
+      color: #444;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .google-btn:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transform: translateY(-2px);
     }
     .divider {
       display: flex;
@@ -234,21 +248,15 @@
       <h2>로그인</h2>
       <p>구글 계정으로 간편하게 시작하세요</p>
       
-      <div class="google-btn-container">
-        <div id="g_id_onload"
-             data-client_id="506078799522-9ul40knlju9485bp654m76l2c0u76cbf.apps.googleusercontent.com"
-             data-callback="handleCredentialResponse"
-             data-auto_prompt="false">
-        </div>
-        <div class="g_id_signin"
-             data-type="standard"
-             data-size="large"
-             data-theme="outline"
-             data-text="sign_in_with"
-             data-shape="rectangular"
-             data-logo_alignment="left">
-        </div>
-      </div>
+      <button class="google-btn" onclick="signInWithGoogle()">
+        <svg class="google-icon" style="width: 20px; height: 20px; margin-right: 12px;" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Google로 로그인
+      </button>
       
       <div class="spinner" id="loading"></div>
       
@@ -284,136 +292,48 @@
   </div>
 
   <script>
-    // 페이지 로드 시 세션 체크
-    window.addEventListener('load', function() {
-      const user = JSON.parse(sessionStorage.getItem('user') || '{}');
-      if (user.userId) {
+    // Supabase 클라이언트 초기화
+    const supabaseClient = window.supabase.createClient(
+      'https://gitbtujexmsjfixgeoha.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdpdGJ0dWpleG1zamZpeGdlb2hhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NzA5MDIsImV4cCI6MjA4MjA0NjkwMn0.BNN8hauH8NdHZ4vopW_CQ_iK9CR55nfp3JQwuTjrG48'
+    );
+
+    // 페이지 로드 시 세션 확인
+    window.addEventListener('load', async function() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
         // 이미 로그인되어 있으면 pharmchecker로 리다이렉트
         window.location.href = '/pharmchecker';
-        return;
       }
     });
 
-    // 구글 로그인 응답 처리
-    async function handleCredentialResponse(response) {
-      console.log("Encoded JWT ID token: " + response.credential);
-      
-      // 로딩 표시
+    // Google 로그인
+    async function signInWithGoogle() {
       document.getElementById('loading').style.display = 'block';
       
-      // JWT 토큰 디코딩 (간단한 파싱)
       try {
-        const payload = parseJwt(response.credential);
-        console.log("User info:", payload);
-        
-        // 서버에 로그인 요청
-        const loginResponse = await fetch('/api/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: payload.email,
-            idToken: response.credential
-          })
-        });
-
-        const result = await loginResponse.json();
-
-        if (loginResponse.ok && result.success) {
-          // 로그인 성공 - localStorage에 사용자 정보 저장 (페이지 간 유지)
-          localStorage.setItem('userId', result.data.userId);
-          // 세션 토큰 저장 (localStorage + 쿠키)
-          localStorage.setItem('user_session_token', result.session_token);
-          document.cookie = `user_session_token=${result.session_token}; path=/; max-age=3600;`;
-          
-          // 사용자 정보 저장 (기존 호환성 유지)
-          localStorage.setItem('userId', result.data.userId);
-          localStorage.setItem('email', result.data.email);
-          localStorage.setItem('name', result.data.pharmacistName);
-          localStorage.setItem('pharmacyName', result.data.pharmacyName);
-          localStorage.setItem('picture', result.data.googlePicture || payload.picture);
-          
-          sessionStorage.setItem('user', JSON.stringify({
-            userId: result.data.userId,
-            email: result.data.email,
-            name: result.data.pharmacistName,
-            pharmacyName: result.data.pharmacyName,
-            picture: result.data.googlePicture || payload.picture
-          }));
-          
-          // pharmchecker 페이지로 이동
-          setTimeout(() => {
-            window.location.href = '/pharmchecker';
-          }, 500);
-        } else {
-          // 로그인 실패 - 등록되지 않은 이메일
-          document.getElementById('loading').style.display = 'none';
-          alert(result.message || '로그인에 실패했습니다.');
-          
-          // 회원가입 페이지로 이동할지 확인
-          if (confirm('등록되지 않은 계정입니다. 회원가입 페이지로 이동하시겠습니까?')) {
-            window.location.href = '/join';
+        const { data, error } = await supabaseClient.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/pharmchecker`
           }
-        }
+        });
         
+        if (error) {
+          console.error('로그인 실패:', error);
+          alert('로그인에 실패했습니다: ' + error.message);
+          document.getElementById('loading').style.display = 'none';
+        }
       } catch (error) {
-        console.error("Login failed:", error);
+        console.error('로그인 오류:', error);
+        alert('로그인 중 오류가 발생했습니다.');
         document.getElementById('loading').style.display = 'none';
-        showErrorPopup();
       }
     }
-    
-    // JWT 토큰 파싱 함수
-    function parseJwt(token) {
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-      }).join(''));
-      return JSON.parse(jsonPayload);
-    }
-    
-    // 에러 팝업 표시
-    function showErrorPopup() {
-      document.getElementById('errorPopup').classList.add('active');
-    }
-    
-    // 에러 팝업 닫기 및 페이지 새로고침
+
+    // 에러 팝업 닫기
     function closeErrorPopup() {
       document.getElementById('errorPopup').classList.remove('active');
-      window.location.reload();
-    }
-    
-    // 개발 모드: 구글 클라이언트 ID가 없을 때 임시 로그인 버튼 표시
-    window.addEventListener('load', function() {
-      // 구글 클라이언트 ID를 설정하지 않은 경우를 위한 개발용 처리
-      const clientId = document.querySelector('[data-client_id]').getAttribute('data-client_id');
-      if (clientId === 'YOUR_GOOGLE_CLIENT_ID') {
-        console.warn('⚠️ 구글 클라이언트 ID를 설정해주세요.');
-        // 개발 모드: 임시 로그인 버튼 생성
-        const devButton = document.createElement('button');
-        devButton.textContent = '개발 모드 로그인 (테스트용)';
-        devButton.style.cssText = 'padding: 12px 24px; background: #4285f4; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 20px;';
-        devButton.onclick = function() {
-          // 테스트용 JWT 생성 및 로그인
-          handleCredentialResponse({
-            credential: createTestJWT()
-          });
-        };
-        document.querySelector('.google-btn-container').appendChild(devButton);
-      }
-    });
-    
-    // 테스트용 JWT 생성
-    function createTestJWT() {
-      const header = btoa(JSON.stringify({alg: "HS256", typ: "JWT"}));
-      const payload = btoa(JSON.stringify({
-        email: 'test@pharmchecker.com',
-        name: '테스트 사용자',
-        picture: ''
-      }));
-      return header + '.' + payload + '.signature';
     }
   </script>
 </body>

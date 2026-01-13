@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>회원가입 - PharmChecker</title>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
   <style>
     * {
@@ -245,19 +245,15 @@
         <p>회원가입을 위해 구글 계정 인증이 필요합니다</p>
         
         <div class="google-btn-container">
-          <div id="g_id_onload"
-               data-client_id="506078799522-9ul40knlju9485bp654m76l2c0u76cbf.apps.googleusercontent.com"
-               data-callback="handleCredentialResponse"
-               data-auto_prompt="false">
-          </div>
-          <div class="g_id_signin"
-               data-type="standard"
-               data-size="large"
-               data-theme="outline"
-               data-text="signup_with"
-               data-shape="rectangular"
-               data-logo_alignment="left">
-          </div>
+          <button class="google-signin-btn" onclick="signInWithGoogle()">
+            <svg class="google-icon" style="width: 20px; height: 20px; margin-right: 12px;" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Google로 계속하기
+          </button>
         </div>
         
         <div class="auth-success" id="authSuccess">
@@ -336,80 +332,105 @@
   </div>
 
   <script>
+    // Supabase 클라이언트 초기화
+    const supabaseClient = window.supabase.createClient(
+      'https://gitbtujexmsjfixgeoha.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdpdGJ0dWpleG1zamZpeGdlb2hhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NzA5MDIsImV4cCI6MjA4MjA0NjkwMn0.BNN8hauH8NdHZ4vopW_CQ_iK9CR55nfp3JQwuTjrG48'
+    );
+
     let authUserId = '';
     let userEmail = '';
     let userName = '';
     let userPicture = '';
+    let accessToken = '';
     
-    // 구글 로그인 응답 처리
-    async function handleCredentialResponse(response) {
-      console.log("Encoded JWT ID token: " + response.credential);
-      
+    // Google 로그인
+    async function signInWithGoogle() {
       try {
-        // JWT 파싱
-        const payload = parseJwt(response.credential);
-        console.log("User info:", payload);
-        
-        userEmail = payload.email;
-        userName = payload.name;
-        userPicture = payload.picture || '';
-
-        // 백엔드에서 auth.users.id 획득
-        const authResponse = await fetch('/api/auth/get-user-id', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            email: userEmail,
-            name: userName,
-            picture: userPicture
-          })
+        const { data, error } = await supabaseClient.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/join?auth=callback`
+          }
         });
-
-        const authData = await authResponse.json();
-
-        if (!authResponse.ok || !authData.success) {
-          alert(authData.message || '인증에 실패했습니다.');
-          return;
+        
+        if (error) {
+          console.error('인증 실패:', error);
+          alert('인증에 실패했습니다: ' + error.message);
         }
-
-        authUserId = authData.userId;
-        const isExistingUser = authData.isExistingUser;
-
-        console.log('Auth User ID:', authUserId);
-        console.log('Is Existing User:', isExistingUser);
-        
-        if (isExistingUser) {
-          // 이미 가입된 계정
-          alert('이미 가입하신 계정입니다.\n로그인 페이지로 이동합니다.');
-          window.location.href = '/login';
-          return;
-        }
-        
-        // 신규 회원 - 인증 성공 표시
-        document.getElementById('authSuccess').classList.add('show');
-        document.getElementById('step1').classList.add('completed');
-        document.getElementById('step2').classList.add('active');
-        
-        // 폼 섹션 표시
-        setTimeout(() => {
-          document.getElementById('authSection').style.display = 'none';
-          document.getElementById('loginLinkAuth').style.display = 'none';
-          document.getElementById('formSection').classList.add('show');
-          
-          // 이메일 자동 입력
-          document.getElementById('email').value = userEmail;
-          
-          // 제출 버튼 활성화
-          document.getElementById('submitBtn').disabled = false;
-        }, 1000);
-        
       } catch (error) {
-        console.error("Authentication failed:", error);
-        alert('인증에 실패했습니다. 다시 시도해주세요.');
+        console.error('인증 오류:', error);
+        alert('인증 중 오류가 발생했습니다.');
       }
     }
+
+    // 페이지 로드 시 callback 처리
+    window.addEventListener('DOMContentLoaded', async function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      if (urlParams.get('auth') === 'callback') {
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
+        
+        if (error || !session) {
+          alert('인증에 실패했습니다. 다시 시도해주세요.');
+          return;
+        }
+
+        const user = session.user;
+        authUserId = user.id;
+        userEmail = user.email;
+        userName = user.user_metadata.full_name || user.email.split('@')[0];
+        userPicture = user.user_metadata.avatar_url || '';
+        accessToken = session.access_token;
+
+        console.log('User info:', user);
+        
+        // 이미 가입된 사용자인지 확인
+        try {
+          const checkResponse = await fetch('/api/auth/check-existing-user', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({ userId: authUserId })
+          });
+
+          const checkData = await checkResponse.json();
+
+          if (checkData.isExistingUser) {
+            // 이미 가입된 계정
+            alert('이미 가입하신 계정입니다.\n로그인 페이지로 이동합니다.');
+            window.location.href = '/login';
+            return;
+          }
+          
+          // 신규 회원 - 인증 성공 표시
+          document.getElementById('authSuccess').classList.add('show');
+          document.getElementById('step1').classList.add('completed');
+          document.getElementById('step2').classList.add('active');
+          
+          // 폼 섹션 표시
+          setTimeout(() => {
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('loginLinkAuth').style.display = 'none';
+            document.getElementById('formSection').classList.add('show');
+            
+            // 이메일 자동 입력
+            document.getElementById('email').value = userEmail;
+            
+            // 제출 버튼 활성화
+            document.getElementById('submitBtn').disabled = false;
+          }, 1000);
+          
+        } catch (error) {
+          console.error("User check failed:", error);
+          alert('사용자 확인에 실패했습니다. 다시 시도해주세요.');
+        }
+      }
+    });
     
-    // JWT 토큰 파싱
+    // JWT 토큰 파싱 (필요시 사용)
     function parseJwt(token) {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -605,11 +626,9 @@
       
       // 폼 데이터 수집
       const formData = {
-        authUserId: authUserId,
         pharmacistName: document.getElementById('pharmacistName').value,
         pharmacistPhone: document.getElementById('pharmacistPhone').value,
         businessNumber: document.getElementById('businessNumber').value,
-        pharmacyName: document.getElementById('pharmacyName').value,
         pharmacyName: document.getElementById('pharmacyName').value,
         pharmacyPhone: document.getElementById('pharmacyPhone').value,
         postcode: document.getElementById('postcode').value,
@@ -627,6 +646,7 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
           },
           body: JSON.stringify(formData)
         });
@@ -645,36 +665,6 @@
         console.error('회원가입 요청 에러:', error);
         alert('서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
       }
-    }
-    
-    // 개발 모드
-    window.addEventListener('load', function() {
-      const clientId = document.querySelector('[data-client_id]').getAttribute('data-client_id');
-      if (clientId === 'YOUR_GOOGLE_CLIENT_ID') {
-        console.warn('⚠️ 구글 클라이언트 ID를 설정해주세요.');
-        
-        // 개발 모드: 임시 인증 버튼
-        const devButton = document.createElement('button');
-        devButton.textContent = '개발 모드 인증 (테스트용)';
-        devButton.style.cssText = 'padding: 12px 24px; background: #4285f4; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 20px;';
-        devButton.onclick = function() {
-          handleCredentialResponse({
-            credential: createTestJWT()
-          });
-        };
-        document.querySelector('.google-btn-container').appendChild(devButton);
-      }
-    });
-    
-    // 테스트용 JWT 생성
-    function createTestJWT() {
-      const header = btoa(JSON.stringify({alg: "HS256", typ: "JWT"}));
-      const payload = btoa(JSON.stringify({
-        email: 'test@pharmchecker.com',
-        name: '테스트 사용자',
-        picture: ''
-      }));
-      return header + '.' + payload + '.signature';
     }
   </script>
 </body>

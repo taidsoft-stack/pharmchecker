@@ -2,13 +2,9 @@ const express = require("express");
 const got = require("got");
 const { v4: uuidv4 } = require('uuid');
 const supabase = require('../config/supabase');
+const { supabaseAdmin } = require('../config/supabase');
 const { createClient } = require('@supabase/supabase-js');
-
-// Supabase Admin Client (서비스 키 사용)
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const { requireAuth, optionalAuth } = require('../middleware/auth');
 
 // 토스페이먼츠 시크릿 키 (환경 변수에서 로드)
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || 'test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R';
@@ -40,22 +36,16 @@ router.get('/withdraw', function (req, res) {
   res.render('withdraw');
 });
 
-// 회원탈퇴 API
-router.post('/api/user/withdraw', async function (req, res) {
+// 회원탈퇴 API - 인증 필요
+router.post('/api/user/withdraw', requireAuth, async function (req, res) {
   try {
-    const { userId, reason } = req.body;
+    const userId = req.user.id; // requireAuth에서 추출
+    const { reason } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: '사용자 정보를 찾을 수 없습니다.'
-      });
-    }
-
-    console.log('회원탈퇴 요청:', userId, '사유:', reason);
+    console.log('회원탈퇴 요청 사유:', reason);
 
     // 1. public.users에서 사용자 조회
-    const { data: user, error: getUserError } = await supabase
+    const { data: user, error: getUserError } = await req.supabase
       .from('users')
       .select('*')
       .eq('user_id', userId)
@@ -70,7 +60,7 @@ router.post('/api/user/withdraw', async function (req, res) {
     }
 
     // 2. 활성 구독 조회 및 취소
-    const { data: activeSubscriptions } = await supabase
+    const { data: activeSubscriptions } = await req.supabase
       .from('user_subscriptions')
       .select('*')
       .eq('user_id', userId)
@@ -78,7 +68,7 @@ router.post('/api/user/withdraw', async function (req, res) {
 
     if (activeSubscriptions && activeSubscriptions.length > 0) {
       // 구독 취소 처리
-      const { error: cancelError } = await supabase
+      const { error: cancelError } = await req.supabase
         .from('user_subscriptions')
         .update({
           status: 'cancelled',
@@ -97,7 +87,7 @@ router.post('/api/user/withdraw', async function (req, res) {
 
     // 3. public.users 개인정보 익명화 (법적 "즉시 파기" 시점)
     // 사업자번호는 결제·세무 목적으로 5년 보관 (전자상거래법·세법)
-    const { error: anonymizeError } = await supabase
+    const { error: anonymizeError } = await req.supabase
       .from('users')
       .update({
         pharmacist_name: '(탈퇴한 사용자)',
@@ -128,7 +118,7 @@ router.post('/api/user/withdraw', async function (req, res) {
     console.log('개인정보 익명화 완료');
 
     // 4. user_deletion_logs에 기록
-    const { error: logError } = await supabase
+    const { error: logError } = await req.supabase
       .from('user_deletion_logs')
       .insert({
         user_id: userId,
@@ -242,6 +232,50 @@ router.post('/api/auth/get-user-id', async function (req, res) {
     });
 
   } catch (error) {
+    console.error('사용자 확인 에러:', error);
+    res.status(500).json({
+      success: false,
+      message: '서버 오류가 발생했습니다.',
+      error: error.message
+    });
+  }
+});
+
+// Supabase Auth 기반 - 이미 가입된 사용자인지 확인
+router.post('/api/auth/check-existing-user', requireAuth, async function (req, res) {
+  try {
+    const { userId } = req.body;
+    const authenticatedUserId = req.user.id;
+
+    // 요청한 userId와 인증된 userId가 일치하는지 확인
+    if (userId !== authenticatedUserId) {
+      return res.status(403).json({
+        success: false,
+        message: '권한이 없습니다.'
+      });
+    }
+
+    // public.users에 이미 회원가입했는지 확인
+    const { data: existingUser, error } = await req.supabase
+      .from('users')
+      .select('user_id')
+      .eq('user_id', userId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+      console.error('사용자 확인 실패:', error);
+      return res.status(500).json({
+        success: false,
+        message: '사용자 확인에 실패했습니다.'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      isExistingUser: !!existingUser
+    });
+
+  } catch (error) {
     console.error('인증 처리 에러:', error);
     res.status(500).json({
       success: false,
@@ -251,11 +285,11 @@ router.post('/api/auth/get-user-id', async function (req, res) {
   }
 });
 
-// 회원가입 API
-router.post('/api/signup', async function (req, res) {
+// 회원가입 API - Supabase Auth 인증 필요
+router.post('/api/signup', requireAuth, async function (req, res) {
   try {
+    const authUserId = req.user.id; // requireAuth에서 추출한 사용자 ID
     const {
-      authUserId,
       pharmacistName,
       pharmacistPhone,
       businessNumber,
@@ -268,14 +302,6 @@ router.post('/api/signup', async function (req, res) {
       googlePicture
     } = req.body;
 
-    // authUserId 검증 (Google 로그인 후 획득한 auth.users.id)
-    if (!authUserId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Google 로그인 후 회원가입을 진행해주세요.'
-      });
-    }
-
     // 필수 필드 검증
     if (!pharmacistName || !pharmacistPhone || !businessNumber || 
         !pharmacyName || !pharmacyPhone || !postcode || !address) {
@@ -286,7 +312,7 @@ router.post('/api/signup', async function (req, res) {
     }
 
     // 이미 회원가입한 사용자인지 확인 (user_id 중복 체크)
-    const { data: existingUser } = await supabase
+    const { data: existingUser } = await req.supabase
       .from('users')
       .select('user_id')
       .eq('user_id', authUserId)
@@ -300,7 +326,7 @@ router.post('/api/signup', async function (req, res) {
     }
 
     // 사업자 번호 중복 체크
-    const { data: existingBusiness } = await supabase
+    const { data: existingBusiness } = await req.supabase
       .from('users')
       .select('business_number')
       .eq('business_number', businessNumber)
@@ -317,7 +343,7 @@ router.post('/api/signup', async function (req, res) {
     // 추천인 코드 검증 (선택)
     let validPromotion = null;
     if (referralCode) {
-      const { data: referralData, error: refError } = await supabase
+      const { data: referralData, error: refError } = await req.supabase
         .from('referral_codes')
         .select(`
           *,
@@ -368,7 +394,7 @@ router.post('/api/signup', async function (req, res) {
     const businessNumberClean = businessNumber.replace(/-/g, '');
     
     // promotion_usage_history에서 프로모션 사용 이력 확인
-    const { data: promotionHistory } = await supabase
+    const { data: promotionHistory } = await req.supabase
       .from('promotion_usage_history')
       .select('history_id')
       .eq('business_number', businessNumberClean)
@@ -386,7 +412,7 @@ router.post('/api/signup', async function (req, res) {
     });
 
     // 4. 사용자 데이터 삽입
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('users')
       .insert([
         {
@@ -422,7 +448,7 @@ router.post('/api/signup', async function (req, res) {
       const businessNumberClean = businessNumber.replace(/-/g, '');
       console.log('🔍 프로모션 사용 이력 조회:', businessNumberClean);
       
-      const { data: usageHistory, error: usageError } = await supabase
+      const { data: usageHistory, error: usageError } = await req.supabase
         .from('promotion_usage_history')
         .select('promotion_id, business_number, is_exhausted, first_used_at')
         .eq('business_number', businessNumberClean);
@@ -437,7 +463,7 @@ router.post('/api/signup', async function (req, res) {
 
       if (!hasPromotionHistory) {
         // ✅ 프로모션 사용 이력 없음 → pending_user_promotions에 저장
-        const { error: pendingError } = await supabase
+        const { error: pendingError } = await req.supabase
           .from('pending_user_promotions')
           .insert({
             user_id: userId,
@@ -568,8 +594,8 @@ router.post('/api/login', async function (req, res) {
 
     console.log('auth.users 발견:', authUser.id);
 
-    // 2. public.users에서 user_id로 사용자 조회
-    const { data: user, error } = await supabase
+    // 2. public.users에서 user_id로 사용자 조회 (로그인은 인증 전이므로 supabaseAdmin 사용)
+    const { data: user, error } = await supabaseAdmin
       .from('users')
       .select('*')
       .eq('user_id', authUser.id)
@@ -585,7 +611,7 @@ router.post('/api/login', async function (req, res) {
       });
     }
 
-    console.log('로그인 성공:', user.user_id);
+    console.log('로그인 성공');
 
     // 세션 토큰 생성 (구글 ID 토큰을 그대로 사용)
     const sessionToken = req.body.idToken || '';
@@ -648,19 +674,12 @@ router.get('/api/subscription/plans', async function (req, res) {
 });
 
 // 사용자 구독 상태 조회 API
-router.get('/api/subscription/status', async function (req, res) {
+router.get('/api/subscription/status', requireAuth, async function (req, res) {
   try {
-    const { userId } = req.query;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: 'userId가 필요합니다.'
-      });
-    }
+    const userId = req.user.id; // requireAuth에서 추출
 
     // 활성 구독 조회
-    const { data: subscription } = await supabase
+    const { data: subscription } = await req.supabase
       .from('user_subscriptions')
       .select(`
         *,
@@ -713,7 +732,6 @@ router.get('/api/subscription/status', async function (req, res) {
   }
 });
 
-// 구독 취소 API
 // 구독 플랜 선택 페이지
 router.get('/subscription/plans', function (req, res) {
   res.render('subscription-plans');
@@ -735,12 +753,12 @@ router.get('/update-payment', function (req, res) {
 });
 
 // 구독 결제 페이지
-router.get('/subscription/payment', async function (req, res) {
+router.get('/subscription/payment', optionalAuth, async function (req, res) {
   try {
     const userId = req.query.userId;
     const planId = req.query.planId;
     
-    console.log('🔍 /subscription/payment 접근:', { userId, planId });
+    console.log('🔍 /subscription/payment 접근:', { planId });
     
     if (!userId || !planId) {
       console.log('❌ userId 또는 planId 없음');
@@ -748,7 +766,7 @@ router.get('/subscription/payment', async function (req, res) {
     }
 
     // ===== 플랜 정보 조회 =====
-    const { data: planData, error: planError } = await supabase
+    const { data: planData, error: planError } = await (req.supabase || supabase)
       .from('subscription_plans')
       .select('plan_name, monthly_price')
       .eq('plan_id', planId)
@@ -762,7 +780,7 @@ router.get('/subscription/payment', async function (req, res) {
     }
 
     // ===== 사용자 정보 조회 =====
-    const { data: userData } = await supabase
+    const { data: userData } = await (req.supabase || supabase)
       .from('users')
       .select('business_number')
       .eq('user_id', userId)
@@ -775,7 +793,7 @@ router.get('/subscription/payment', async function (req, res) {
     if (userData && userData.business_number) {
       const businessNumberClean = userData.business_number.replace(/[^0-9]/g, '');
       
-      const { data: promotionHistory } = await supabaseAdmin
+      const { data: promotionHistory } = await (req.supabase || supabase)
         .from('promotion_usage_history')
         .select('*')
         .eq('business_number', businessNumberClean)
@@ -788,7 +806,7 @@ router.get('/subscription/payment', async function (req, res) {
     }
 
     // ===== pending_user_promotions에서 사용 가능한 프로모션 목록 조회 =====
-    const { data: pendingPromotions } = await supabaseAdmin
+    const { data: pendingPromotions } = await (req.supabase || supabase)
       .from('pending_user_promotions')
       .select(`
         promotion_id,
@@ -815,7 +833,7 @@ router.get('/subscription/payment', async function (req, res) {
       
       // ✅ 첫 결제 판단 (LLM 설계 기준)
       // 1. billing_payments 테이블에서 성공한 유료 결제(amount > 0) 이력 확인
-      const { data: userPayments } = await supabase
+      const { data: userPayments } = await (req.supabase || supabase)
         .from('billing_payments')
         .select('payment_id')
         .eq('user_id', userId)
@@ -825,7 +843,7 @@ router.get('/subscription/payment', async function (req, res) {
       const hasPaymentHistory = userPayments && userPayments.length > 0;
       
       // 2. promotion_usage_history에서 동일 사업자번호의 이력 확인 (탈퇴 후 재가입 대응)
-      const { data: usageHistory } = await supabase
+      const { data: usageHistory } = await (req.supabase || supabase)
         .from('promotion_usage_history')
         .select('promotion_id, business_number, is_exhausted')
         .eq('business_number', businessNumberClean);
@@ -908,7 +926,7 @@ router.get('/subscription/billing-success', async function (req, res) {
     // referralCodeId 정규화: "null" 문자열을 null로 변환
     const normalizedReferralCodeId = (referralCodeId === 'null' || referralCodeId === 'undefined' || !referralCodeId) ? null : referralCodeId;
 
-    console.log('빌링키 발급 시작:', { authKey, customerKey, planId, userId, finalAmount, planOriginalPrice, promotionId, referralCodeId: normalizedReferralCodeId });
+    console.log('빌링키 발급 시작:', { planId, finalAmount, planOriginalPrice, promotionId, referralCodeId: normalizedReferralCodeId });
 
     // ===== 1단계: 중복 구독 확인 (이미 활성 구독이 있으면 에러) =====
     const { data: existingSubscription } = await supabase
@@ -959,7 +977,7 @@ router.get('/subscription/billing-success', async function (req, res) {
     let promotionData = null;
     
     if (promotionId && promotionId !== '') {
-      const { data: promoData } = await supabaseAdmin
+      const { data: promoData } = await supabase
         .from('subscription_promotions')
         .select('*')
         .eq('promotion_id', promotionId)
@@ -1181,7 +1199,7 @@ router.get('/subscription/billing-success', async function (req, res) {
 
       // 무료 프로모션 사용 이력 저장 (promotion_usage_history)
       if (businessNumberClean && promotionData.promotion_code) {
-        const { error: historyError } = await supabaseAdmin
+        const { error: historyError } = await supabase
           .from('promotion_usage_history')
           .insert({
             business_number: businessNumberClean,
@@ -1744,15 +1762,13 @@ router.get('/api/subscription/update-payment-success', async function (req, res)
 });
 
 // 내 구독 정보 조회
-router.get('/api/subscription/my', async function (req, res) {
+router.get('/api/subscription/my', requireAuth, async function (req, res) {
   try {
-    const userId = req.query.userId;
-    if (!userId) {
-      return res.status(400).json({ success: false, message: '사용자 ID가 필요합니다.' });
-    }
-
-    // 구독 정보 조회 (.single() 대신 .maybeSingle() 사용)
-    const { data: subscription, error: subError } = await supabase
+    const userId = req.user.id; // Supabase Auth에서 가져온 사용자 ID
+    const userSupabase = req.supabase; // 인증된 Supabase 클라이언트 (RLS 적용됨)
+    
+    // 구독 정보 조회 - RLS 정책 적용 (auth.uid() = user_id)
+    const { data: subscription, error: subError } = await userSupabase
       .from('user_subscriptions')
       .select('*, subscription_plans!user_subscriptions_billing_plan_id_fkey(plan_name, monthly_price)')
       .eq('user_id', userId)
@@ -1768,10 +1784,10 @@ router.get('/api/subscription/my', async function (req, res) {
       return res.json({ success: false, message: '구독 정보가 없습니다.' });
     }
 
-    // 카드 정보 조회
+    // 카드 정보 조회 - RLS 적용
     let cardInfo = null;
     if (subscription.payment_method_id) {
-      const { data: paymentMethod } = await supabase
+      const { data: paymentMethod } = await userSupabase
         .from('payment_methods')
         .select('*')
         .eq('payment_method_id', subscription.payment_method_id)
@@ -1787,10 +1803,10 @@ router.get('/api/subscription/my', async function (req, res) {
       }
     }
 
-    // 현재 청구기간 사용량 조회 (유료 기간만)
+    // 현재 청구기간 사용량 조회 - RLS 적용
     let usageStats = null;
     if (subscription.current_period_start) {
-      const { data: stats } = await supabase
+      const { data: stats } = await userSupabase
         .from('usage_billing_period_stats')
         .select('*')
         .eq('subscription_id', subscription.subscription_id)
@@ -1808,10 +1824,10 @@ router.get('/api/subscription/my', async function (req, res) {
         planName: subscription.subscription_plans.plan_name,
         price: subscription.subscription_plans.monthly_price,
         status: subscription.status,
-        isFreeTrialActive: isFreeTrialActive,  // 무료 기간 중인지
+        isFreeTrialActive: isFreeTrialActive,
         currentPeriodStart: subscription.current_period_start,
         currentPeriodEnd: subscription.current_period_end,
-        nextBillingAt: subscription.next_billing_at,  // 다음 결제일
+        nextBillingAt: subscription.next_billing_at,
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
         failedAt: subscription.failed_at,
         graceUntil: subscription.grace_until,
@@ -1826,14 +1842,12 @@ router.get('/api/subscription/my', async function (req, res) {
 });
 
 // 결제 내역 조회
-router.get('/api/subscription/payment-history', async function (req, res) {
+router.get('/api/subscription/payment-history', requireAuth, async function (req, res) {
   try {
-    const userId = req.query.userId;
-    if (!userId) {
-      return res.status(400).json({ success: false, message: '사용자 ID가 필요합니다.' });
-    }
+    const userId = req.user.id; // requireAuth에서 추출
 
-    const { data: payments, error } = await supabase
+    // 결제 내역 조회
+    const { data: payments, error } = await req.supabase
       .from('billing_payments')
       .select('*, user_subscriptions(subscription_plans!user_subscriptions_billing_plan_id_fkey(plan_name))')
       .eq('user_id', userId)
@@ -1861,15 +1875,17 @@ router.get('/api/subscription/payment-history', async function (req, res) {
 });
 
 // 카드 변경 (재결제)
-router.post('/api/subscription/update-payment', async function (req, res) {
+router.post('/api/subscription/update-payment', requireAuth, async function (req, res) {
   try {
-    const { userId, authKey } = req.body;
-    if (!userId || !authKey) {
-      return res.status(400).json({ success: false, message: '필수 정보가 누락되었습니다.' });
+    const userId = req.user.id; // requireAuth에서 추출
+    const { authKey } = req.body;
+    
+    if (!authKey) {
+      return res.status(400).json({ success: false, message: '인증키가 필요합니다.' });
     }
 
     // 구독 정보 조회
-    const { data: subscription } = await supabase
+    const { data: subscription } = await req.supabase
       .from('user_subscriptions')
       .select('*, subscription_plans!user_subscriptions_billing_plan_id_fkey(*)')
       .eq('user_id', userId)
@@ -1881,7 +1897,7 @@ router.post('/api/subscription/update-payment', async function (req, res) {
 
     // 기존 payment_method 비활성화
     if (subscription.payment_method_id) {
-      await supabase
+      await req.supabase
         .from('payment_methods')
         .update({ disabled_at: new Date().toISOString() })
         .eq('payment_method_id', subscription.payment_method_id);
@@ -1907,7 +1923,7 @@ router.post('/api/subscription/update-payment', async function (req, res) {
     const cardLast4 = (billingData.cardNumber || billingData.card?.number || '').slice(-4) || null;
 
     // 새 payment_method 저장
-    const { data: newPaymentMethod } = await supabase
+    const { data: newPaymentMethod } = await req.supabase
       .from('payment_methods')
       .insert({
         payment_method_id: uuidv4(),
@@ -1944,7 +1960,7 @@ router.post('/api/subscription/update-payment', async function (req, res) {
     const paymentData = paymentResponse.body;
 
     // 구독 상태 업데이트
-    await supabase
+    await req.supabase
       .from('user_subscriptions')
       .update({
         payment_method_id: newPaymentMethod.payment_method_id,
@@ -1955,7 +1971,7 @@ router.post('/api/subscription/update-payment', async function (req, res) {
       .eq('subscription_id', subscription.subscription_id);
 
     // 결제 기록 저장
-    await supabase.from('billing_payments').insert({
+    await req.supabase.from('billing_payments').insert({
       payment_id: uuidv4(),
       subscription_id: subscription.subscription_id,
       user_id: userId,
@@ -1984,14 +2000,11 @@ router.post('/api/subscription/update-payment', async function (req, res) {
 });
 
 // 구독 해지
-router.post('/api/subscription/cancel', async function (req, res) {
+router.post('/api/subscription/cancel', requireAuth, async function (req, res) {
   try {
-    const { userId } = req.body;
-    if (!userId) {
-      return res.status(400).json({ success: false, message: '사용자 ID가 필요합니다.' });
-    }
+    const userId = req.user.id; // requireAuth에서 추출
 
-    const { data: subscription } = await supabase
+    const { data: subscription } = await req.supabase
       .from('user_subscriptions')
       .select('*')
       .eq('user_id', userId)
@@ -2002,7 +2015,7 @@ router.post('/api/subscription/cancel', async function (req, res) {
     }
 
     // 즉시 해지가 아닌 다음 결제일에 해지
-    const { error: updateError } = await supabase
+    const { error: updateError } = await req.supabase
       .from('user_subscriptions')
       .update({ 
         cancel_at_period_end: true,
@@ -2029,14 +2042,11 @@ router.post('/api/subscription/cancel', async function (req, res) {
 });
 
 // 구독 해지 취소
-router.post('/api/subscription/reactivate', async function (req, res) {
+router.post('/api/subscription/reactivate', requireAuth, async function (req, res) {
   try {
-    const { userId } = req.body;
-    if (!userId) {
-      return res.status(400).json({ success: false, message: '사용자 ID가 필요합니다.' });
-    }
+    const userId = req.user.id; // requireAuth에서 추출
 
-    const { data: subscription } = await supabase
+    const { data: subscription } = await req.supabase
       .from('user_subscriptions')
       .select('*')
       .eq('user_id', userId)
@@ -2051,7 +2061,7 @@ router.post('/api/subscription/reactivate', async function (req, res) {
     }
 
     // 해지 취소: cancel_at_period_end를 false로 변경
-    const { error: updateError } = await supabase
+    const { error: updateError } = await req.supabase
       .from('user_subscriptions')
       .update({ 
         cancel_at_period_end: false,
@@ -2110,6 +2120,81 @@ router.post("/confirm", function (req, res) {
       console.log(error.response.body);
       res.status(error.response.statusCode).json(error.response.body)
     });
+});
+
+// ============================================
+// 프로그램 다운로드
+// ============================================
+
+// 최신 프로그램 다운로드
+router.get('/api/download/latest', requireAuth, async (req, res) => {
+  try {
+    console.log('다운로드 요청 - releases/pharmchecker/downloads 폴더에서 파일 목록 조회 중...');
+    
+    // pharmchecker/downloads 폴더 확인
+    const { data: files, error } = await supabaseAdmin.storage
+      .from('releases')
+      .list('pharmchecker/downloads', {
+        limit: 100,
+        sortBy: { column: 'created_at', order: 'desc' }
+      });
+
+    console.log('Storage 응답:', { filesCount: files?.length, error });
+    
+    if (error) {
+      console.error('Storage 파일 목록 조회 오류:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: '파일 목록을 불러오는 중 오류가 발생했습니다.',
+        error: error.message 
+      });
+    }
+
+    console.log('조회된 파일 목록:', files?.map(f => f.name));
+
+    // exe 파일만 필터링
+    const exeFiles = files?.filter(file => file.name.toLowerCase().endsWith('.exe')) || [];
+    
+    console.log('exe 파일:', exeFiles?.map(f => f.name));
+
+    if (exeFiles.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: '다운로드 가능한 파일이 없습니다.' 
+      });
+    }
+
+    // 가장 최신 파일 선택
+    const latestFile = exeFiles[0];
+
+    // Signed URL 생성 (1시간 유효)
+    const { data: urlData, error: signError } = await supabaseAdmin.storage
+      .from('releases')
+      .createSignedUrl(`pharmchecker/downloads/${latestFile.name}`, 3600); // 3600초 = 1시간
+
+    if (signError) {
+      console.error('Signed URL 생성 오류:', signError);
+      return res.status(500).json({ 
+        success: false, 
+        message: '다운로드 링크 생성 중 오류가 발생했습니다.' 
+      });
+    }
+
+    res.json({
+      success: true,
+      filename: latestFile.name,
+      downloadUrl: urlData.signedUrl,
+      size: latestFile.metadata?.size,
+      createdAt: latestFile.created_at
+    });
+
+  } catch (error) {
+    console.error('다운로드 URL 생성 오류:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: '다운로드 준비 중 오류가 발생했습니다.' 
+    });
+  }
 });
 
 module.exports = router;

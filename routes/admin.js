@@ -1,21 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const { supabaseAdmin } = require('../config/supabase');
+const supabase = require('../config/supabase');
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-// 서버 인스턴스 ID (서버 시작 시마다 새로 생성)
-const SERVER_INSTANCE_ID = crypto.randomBytes(16).toString('hex');
-const SERVER_START_TIME = Date.now();
-
-console.log(`[Admin] 서버 인스턴스 ID: ${SERVER_INSTANCE_ID}`);
-console.log(`[Admin] 서버 시작 시각: ${new Date(SERVER_START_TIME).toISOString()}`);
-
-// ===== 관리자 인증 미들웨어 =====
+// ===== 관리자 인증 미들웨어 (Supabase Auth 기반) =====
 async function requireAdmin(req, res, next) {
   const authHeader = req.headers.authorization;
   
@@ -24,73 +14,37 @@ async function requireAdmin(req, res, next) {
     return res.status(401).json({ error: '인증 필요' });
   }
   
-  const sessionToken = authHeader.substring(7);
-  console.log('[requireAdmin] 받은 토큰 앞 50자:', sessionToken.substring(0, 50));
-  console.log('[requireAdmin] 토큰 길이:', sessionToken.length);
-  console.log('[requireAdmin] 토큰 끝 20자:', sessionToken.substring(sessionToken.length - 20));
+  const token = authHeader.substring(7);
   
   try {
-    // 세션 토큰 파싱 (우리가 발급한 커스텀 토큰)
-    // 형식: v1.BASE64_PAYLOAD.sig
-    const firstDotIndex = sessionToken.indexOf('.');
-    const lastDotIndex = sessionToken.lastIndexOf('.');
-    console.log('[requireAdmin] firstDotIndex:', firstDotIndex, 'lastDotIndex:', lastDotIndex);
+    // Supabase에서 토큰 검증
+    const { data: { user }, error } = await supabase.auth.getUser(token);
     
-    if (firstDotIndex === -1 || lastDotIndex === -1 || firstDotIndex === lastDotIndex) {
-      console.log('[requireAdmin] 잘못된 토큰 형식: 구분자 없음');
-      return res.status(401).json({ error: '잘못된 토큰 형식' });
-    }
-    
-    const version = sessionToken.substring(0, firstDotIndex);
-    const payload = sessionToken.substring(firstDotIndex + 1, lastDotIndex);
-    const signature = sessionToken.substring(lastDotIndex + 1);
-    
-    if (version !== 'v1') {
-      console.log('[requireAdmin] 잘못된 토큰 버전:', version);
-      return res.status(401).json({ error: '잘못된 토큰 버전' });
-    }
-    
-    const tokenData = JSON.parse(Buffer.from(payload, 'base64').toString());
-    console.log('[requireAdmin] 토큰 파싱 성공, email:', tokenData.email);
-    
-    // 서버 인스턴스 ID 확인 (서버 재시작 시 이전 토큰 무효화)
-    if (tokenData.instanceId !== SERVER_INSTANCE_ID) {
-      console.log('[requireAdmin] 인스턴스 ID 불일치:', tokenData.instanceId, '!=', SERVER_INSTANCE_ID);
-      return res.status(401).json({ error: '세션이 만료되었습니다. 다시 로그인해주세요.' });
-    }
-    
-    // 토큰에서 idToken 추출
-    const idToken = tokenData.idToken;
-    
-    // Google OAuth ID Token에서 이메일 추출 (간단한 JWT 파싱)
-    const oauthPayload = JSON.parse(
-      Buffer.from(idToken.split('.')[1], 'base64').toString()
-    );
-    const email = oauthPayload.email;
-    
-    if (!email) {
-      console.log('[requireAdmin] 이메일 없음');
+    if (error || !user) {
+      console.error('[requireAdmin] 토큰 검증 실패:', error);
       return res.status(401).json({ error: '유효하지 않은 토큰' });
     }
     
-    console.log('[requireAdmin] 이메일 확인:', email);
+    console.log('[requireAdmin] 사용자 확인:', user.id, user.email);
     
-    // auth.users에서 사용자 조회
-    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
-    const authUser = users?.find(u => u.email === email);
+    // 인증된 Supabase 클라이언트 생성 (RLS 적용)
+    req.supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      }
+    );
     
-    if (!authUser) {
-      console.log('[requireAdmin] 사용자 없음:', email);
-      return res.status(401).json({ error: '유효하지 않은 사용자' });
-    }
-    
-    console.log('[requireAdmin] 사용자 확인:', authUser.id);
-    
-    // 관리자 권한 확인 (public.admins)
-    const { data: admin, error: adminError } = await supabase
+    // 관리자 권한 확인 (RLS 정책이 자동으로 확인)
+    const { data: admin, error: adminError } = await req.supabase
       .from('admins')
       .select('*')
-      .eq('admin_id', authUser.id)
+      .eq('admin_id', user.id)
       .eq('is_active', true)
       .single();
     
@@ -99,9 +53,10 @@ async function requireAdmin(req, res, next) {
       return res.status(403).json({ error: '관리자 권한 없음' });
     }
     
-    console.log('[requireAdmin] 인증 성공:', admin.admin_id);
+    console.log('[requireAdmin] 인증 성공:', admin.admin_id, admin.role);
     req.admin = admin;
-    req.user = authUser;
+    req.user = user;
+    req.accessToken = token;
     next();
   } catch (error) {
     console.error('[requireAdmin] 인증 오류:', error);

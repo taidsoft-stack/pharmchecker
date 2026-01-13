@@ -620,8 +620,8 @@
       submitButton.classList.add('is-loading');
 
       try {
-        const userId = localStorage.getItem('userId');
-        if (!userId) {
+        const accessToken = localStorage.getItem('access_token');
+        if (!accessToken) {
           alert('로그인이 필요합니다.');
           window.location.href = '/login';
           return;
@@ -642,7 +642,7 @@
         const response = await fetch('/support/api/tickets', {
           method: 'POST',
           headers: {
-            'X-User-Id': userId
+            'Authorization': `Bearer ${accessToken}`
           },
           body: formData
         });

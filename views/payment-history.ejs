@@ -225,11 +225,7 @@
   </section>
 
   <script>
-    const userId = localStorage.getItem('userId');
-    if (!userId) {
-      alert('로그인이 필요합니다.');
-      window.location.href = '/login';
-    }
+    const accessToken = localStorage.getItem('access_token');
 
     // 헤더 사용자 정보 표시
     const userName = localStorage.getItem('name') || '게스트';
@@ -303,7 +299,25 @@
     async function loadPaymentHistory() {
       console.log('[결제 내역] 로드 시작...');
       try {
-        const response = await fetch(`/api/subscription/payment-history?userId=${userId}`);
+        if (!accessToken) {
+          console.log('[결제 내역] 로그인 안 됨 - 빈 내역 표시');
+          document.getElementById('loadingMessage').style.display = 'none';
+          document.getElementById('paymentTable').style.display = 'block';
+          document.getElementById('paymentTableBody').innerHTML = `
+            <tr>
+              <td colspan="6" class="empty-state">
+                <p>로그인이 필요합니다.</p>
+              </td>
+            </tr>
+          `;
+          return;
+        }
+        
+        const response = await fetch('/api/subscription/payment-history', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
         const data = await response.json();
         
         console.log('[결제 내역] API 응답:', data);

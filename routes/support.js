@@ -1,18 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { createClient } = require('@supabase/supabase-js');
+const supabase = require('../config/supabase');
+const { supabaseAdmin } = require('../config/supabase');
+const { requireAuth } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-// 일반 클라이언트 (RLS 적용)
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// 서비스 클라이언트 (RLS 우회, 서버 측 작업용)
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // Multer 설정 (메모리 스토리지 사용)
 const storage = multer.memoryStorage();
@@ -103,15 +95,12 @@ router.get('/faq', async (req, res) => {
 // ============================================
 
 // 문의 목록 조회
-router.get('/api/tickets', async (req, res) => {
+router.get('/api/tickets', requireAuth, async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
-    if (!userId) {
-      return res.status(401).json({ error: '인증이 필요합니다.' });
-    }
+    const userId = req.user.id; // requireAuth에서 추출
 
-    // 문의 목록 조회 (최신순) - RLS 우회를 위해 supabaseAdmin 사용
-    const { data: tickets, error } = await supabaseAdmin
+    // 문의 목록 조회 (최신순) - RLS 적용
+    const { data: tickets, error } = await req.supabase
       .from('support_tickets')
       .select(`
         ticket_id,
@@ -155,17 +144,13 @@ router.get('/api/tickets', async (req, res) => {
 });
 
 // 특정 문의 상세 조회
-router.get('/api/tickets/:id', async (req, res) => {
+router.get('/api/tickets/:id', requireAuth, async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
-    if (!userId) {
-      return res.status(401).json({ error: '인증이 필요합니다.' });
-    }
-
+    const userId = req.user.id; // requireAuth에서 추출
     const ticketId = req.params.id;
 
-    // 문의 상세 조회 - RLS 우회를 위해 supabaseAdmin 사용
-    const { data: ticket, error } = await supabaseAdmin
+    // 문의 상세 조회 - RLS 적용
+    const { data: ticket, error } = await req.supabase
       .from('support_tickets')
       .select(`
         ticket_id,
@@ -204,7 +189,7 @@ router.get('/api/tickets/:id', async (req, res) => {
     // 첨부파일 signed URL 생성
     if (ticket.support_attachments && ticket.support_attachments.length > 0) {
       for (let attachment of ticket.support_attachments) {
-        const { data: signedUrl, error: urlError } = await supabaseAdmin
+        const { data: signedUrl, error: urlError } = await req.supabase
           .storage
           .from('support-attachments')
           .createSignedUrl(attachment.file_path, 3600); // 1시간 유효
@@ -229,15 +214,12 @@ router.get('/api/tickets/:id', async (req, res) => {
 });
 
 // 문의 생성
-router.post('/api/tickets', upload.array('attachments', 5), async (req, res) => {
+router.post('/api/tickets', requireAuth, upload.array('attachments', 5), async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
-    if (!userId) {
-      return res.status(401).json({ error: '인증이 필요합니다.' });
-    }
+    const userId = req.user.id; // requireAuth에서 추출
 
     // users 테이블에 해당 사용자가 존재하는지 확인
-    const { data: user, error: userError } = await supabaseAdmin
+    const { data: user, error: userError } = await req.supabase
       .from('users')
       .select('user_id')
       .eq('user_id', userId)
@@ -254,8 +236,8 @@ router.post('/api/tickets', upload.array('attachments', 5), async (req, res) => 
       return res.status(400).json({ error: '필수 항목을 모두 입력해주세요.' });
     }
 
-    // 문의 생성 (RLS 우회를 위해 supabaseAdmin 사용) - ticket_type은 항상 'question'
-    const { data: ticket, error: ticketError } = await supabaseAdmin
+    // 문의 생성 - RLS 적용
+    const { data: ticket, error: ticketError } = await req.supabase
       .from('support_tickets')
       .insert({
         user_id: userId,
@@ -285,8 +267,8 @@ router.post('/api/tickets', upload.array('attachments', 5), async (req, res) => 
         const fileName = `${timestamp}_${randomStr}${fileExt}`;
         const filePath = `${ticket.ticket_id}/${fileName}`;
 
-        // Storage에 업로드 (RLS 우회)
-        const { data: uploadData, error: uploadError } = await supabaseAdmin
+        // Storage에 업로드 (RLS 적용)
+        const { data: uploadData, error: uploadError } = await req.supabase
           .storage
           .from('support-attachments')
           .upload(filePath, file.buffer, {
@@ -299,8 +281,8 @@ router.post('/api/tickets', upload.array('attachments', 5), async (req, res) => 
           continue; // 실패해도 계속 진행
         }
 
-        // 메타데이터 저장 (RLS 우회) - 원본 파일명을 UTF-8로 저장
-        const { error: metaError } = await supabaseAdmin
+        // 메타데이터 저장 (RLS 적용) - 원본 파일명을 UTF-8로 저장
+        const { error: metaError } = await req.supabase
           .from('support_attachments')
           .insert({
             ticket_id: ticket.ticket_id,
@@ -328,12 +310,9 @@ router.post('/api/tickets', upload.array('attachments', 5), async (req, res) => 
 });
 
 // 원격 지원 요청
-router.post('/api/remote/request', async (req, res) => {
+router.post('/api/remote/request', requireAuth, async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
-    if (!userId) {
-      return res.status(401).json({ error: '인증이 필요합니다.' });
-    }
+    const userId = req.user.id; // requireAuth에서 추출
 
     const { ticket_id, customer_phone, issue_category, notes } = req.body;
 
@@ -343,7 +322,7 @@ router.post('/api/remote/request', async (req, res) => {
     }
 
     // ticket이 본인 것인지 확인
-    const { data: ticket, error: ticketError } = await supabase
+    const { data: ticket, error: ticketError } = await req.supabase
       .from('support_tickets')
       .select('ticket_id, user_id, ticket_type')
       .eq('ticket_id', ticket_id)
@@ -363,7 +342,7 @@ router.post('/api/remote/request', async (req, res) => {
     const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
     
     // 오늘 생성된 세션 수 조회
-    const { count, error: countError } = await supabase
+    const { count, error: countError } = await req.supabase
       .from('remote_support_sessions')
       .select('session_id', { count: 'exact', head: true })
       .gte('created_at', `${today.toISOString().slice(0, 10)}T00:00:00Z`)
@@ -376,8 +355,8 @@ router.post('/api/remote/request', async (req, res) => {
 
     const sessionNumber = `RS-${dateStr}-${String((count || 0) + 1).padStart(3, '0')}`;
 
-    // 원격 지원 세션 생성 (RLS 우회를 위해 supabaseAdmin 사용)
-    const { data: session, error: sessionError } = await supabaseAdmin
+    // 원격 지원 세션 생성 - RLS 적용
+    const { data: session, error: sessionError } = await req.supabase
       .from('remote_support_sessions')
       .insert({
         session_number: sessionNumber,
@@ -408,15 +387,12 @@ router.post('/api/remote/request', async (req, res) => {
 });
 
 // 원격 지원 간소화 API (양식 없이 바로 세션 생성)
-router.post('/api/remote/simple', async (req, res) => {
+router.post('/api/remote/simple', requireAuth, async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
-    if (!userId) {
-      return res.status(401).json({ error: '인증이 필요합니다.' });
-    }
+    const userId = req.user.id; // requireAuth에서 추출
 
     // 1. users 테이블에서 전화번호 조회
-    const { data: user, error: userError } = await supabaseAdmin
+    const { data: user, error: userError } = await req.supabase
       .from('users')
       .select('pharmacist_phone')
       .eq('user_id', userId)
@@ -435,7 +411,7 @@ router.post('/api/remote/simple', async (req, res) => {
     const today = new Date();
     const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
     
-    const { count, error: countError } = await supabaseAdmin
+    const { count, error: countError } = await req.supabase
       .from('remote_support_sessions')
       .select('session_id', { count: 'exact', head: true })
       .gte('created_at', `${today.toISOString().slice(0, 10)}T00:00:00Z`)
@@ -449,7 +425,7 @@ router.post('/api/remote/simple', async (req, res) => {
     const sessionNumber = `RS-${dateStr}-${String((count || 0) + 1).padStart(3, '0')}`;
 
     // 3. 원격 지원 세션 생성
-    const { data: session, error: sessionError } = await supabaseAdmin
+    const { data: session, error: sessionError } = await req.supabase
       .from('remote_support_sessions')
       .insert({
         session_number: sessionNumber,

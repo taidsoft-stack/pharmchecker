@@ -6,6 +6,7 @@
   <title>PharmChecker - 바코드 기반 약품 조제 안전 지원 시스템</title>
   <link rel="icon" href="data:," />
   <script src="https://js.tosspayments.com/v2/standard"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * {
       margin: 0;
@@ -674,7 +675,7 @@
             <div class="nav-dropdown-arrow"></div>
           </div>
           <div class="nav-dropdown-menu" id="navDropdownMenu">
-            <a href="/support/tickets" class="nav-dropdown-item">
+            <a href="/support/new" class="nav-dropdown-item">
               <span class="nav-dropdown-item-icon">✍️</span>
               <span class="nav-dropdown-item-text">문의하기</span>
             </a>
@@ -725,6 +726,9 @@
       <div class="button-group">
         <button class="button button-primary" id="subscribePlanBtn" onclick="goToSubscriptionPlans()" style="opacity: 0.5; cursor: wait;">로딩 중...</button>
         <a href="#how-it-works" class="button button-secondary">작동 방식</a>
+      </div>
+      <div class="button-group" id="downloadButtonGroup" style="display: none; margin-top: 1rem;">
+        <button class="button button-primary" onclick="downloadProgram()">프로그램 다운로드</button>
       </div>
       <p id="subscriptionStatus" style="margin-top: 1rem; font-size: 0.95rem; color: #48c78e; display: none;"></p>
     </div>
@@ -848,32 +852,45 @@
   </footer>
 
   <script>
+    // Supabase 클라이언트 초기화
+    const supabaseClient = window.supabase.createClient(
+      'https://gitbtujexmsjfixgeoha.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdpdGJ0dWpleG1zamZpeGdlb2hhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NzA5MDIsImV4cCI6MjA4MjA0NjkwMn0.BNN8hauH8NdHZ4vopW_CQ_iK9CR55nfp3JQwuTjrG48'
+    );
+
+    let currentUser = null;
+    let accessToken = null;
+
     // 페이지 로드 시 사용자 정보 표시
-    window.addEventListener('DOMContentLoaded', function() {
-      const userId = localStorage.getItem('userId');
-      const userName = localStorage.getItem('name');
-      const userEmail = localStorage.getItem('email');
-      const userPicture = localStorage.getItem('picture');
+    window.addEventListener('DOMContentLoaded', async function() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
       
-      if (!userId) {
+      if (!session) {
         // 로그인하지 않은 경우 로그인 페이지로 리다이렉트
         window.location.href = '/login';
         return;
       }
       
-      // 사용자 이름 표시
-      document.getElementById('userName').textContent = (userName || '게스트') + '님';
+      currentUser = session.user;
+      accessToken = session.access_token;
+      
+      // 사용자 이름 및 정보 표시
+      const userName = currentUser.user_metadata.full_name || currentUser.email.split('@')[0];
+      const userPicture = currentUser.user_metadata.avatar_url;
+      
+      document.getElementById('userName').textContent = userName + '님';
       
       // 프로필 사진이 있으면 표시, 없으면 이니셜 표시
       if (userPicture) {
         document.getElementById('userAvatar').innerHTML = `<img src="${userPicture}" alt="프로필">`;
       } else {
         // 이름의 첫 글자를 이니셜로 사용
-        const initial = (userName || 'G').charAt(0).toUpperCase();
+        const initial = userName.charAt(0).toUpperCase();
         document.getElementById('userInitial').textContent = initial;
       }
       
-      console.log('로그인 사용자:', { userId, userName, userEmail });
+      // 구독 상태 확인
+      await checkSubscriptionStatus();
     });
     
     // 드롭다운 토글
@@ -934,62 +951,41 @@
     
     // 프로필 보기
     function viewProfile() {
-      const userName = localStorage.getItem('name');
-      const userEmail = localStorage.getItem('email');
-      const pharmacyName = localStorage.getItem('pharmacy_name');
-      
-      if (userName) {
+      if (currentUser) {
+        const userName = currentUser.user_metadata.full_name || currentUser.email.split('@')[0];
+        const userEmail = currentUser.email;
+        
         let profileInfo = `프로필 정보\n\n이름: ${userName}\n이메일: ${userEmail}`;
-        if (pharmacyName) {
-          profileInfo += `\n약국명: ${pharmacyName}`;
-        }
         alert(profileInfo);
       }
     }
     
     // 로그아웃
-    function logout() {
+    async function logout() {
       if (confirm('로그아웃 하시겠습니까?')) {
-        // 고객용 localStorage 항목만 삭제 (관리자용은 유지)
-        localStorage.removeItem('user_session_token');
-        localStorage.removeItem('userId');
-        localStorage.removeItem('email');
-        localStorage.removeItem('name');
-        localStorage.removeItem('pharmacyName');
-        localStorage.removeItem('picture');
-        
-        // sessionStorage 전체 삭제
-        sessionStorage.clear();
-        
-        // 고객용 쿠키만 삭제 (관리자용 쿠키는 유지)
-        document.cookie = 'user_session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        document.cookie = 'user_session_token=; domain=' + location.hostname + '; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        
-        // 로그인 페이지로 이동
+        await supabaseClient.auth.signOut();
         window.location.href = '/login';
       }
     }
     
     // 구독 상태 확인 및 버튼 비활성화
     async function checkSubscriptionStatus() {
-      const userId = localStorage.getItem('userId');
+      if (!currentUser) return;
+      
       const btn = document.getElementById('subscribePlanBtn');
       const statusText = document.getElementById('subscriptionStatus');
-      
-      if (!userId) {
-        // 로그인 안된 경우
-        btn.style.opacity = '1';
-        btn.style.cursor = 'pointer';
-        btn.textContent = '구독 플랜 선택하기';
-        return;
-      }
+      const downloadBtnGroup = document.getElementById('downloadButtonGroup');
       
       try {
-        const response = await fetch(`/api/subscription/my?userId=${userId}`);
+        const response = await fetch(`/api/subscription/my`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
         const data = await response.json();
         
         if (data.success) {
-          // 이미 구독 중인 경우 버튼 비활성화
+          // 이미 구독 중인 경우 버튼 비활성화 및 다운로드 버튼 표시
           btn.style.opacity = '0.5';
           btn.style.cursor = 'not-allowed';
           btn.style.pointerEvents = 'none';
@@ -997,37 +993,44 @@
           
           statusText.textContent = `✓ ${data.subscription.planName} 플랜을 사용 중입니다`;
           statusText.style.display = 'block';
+          
+          // 다운로드 버튼 표시
+          downloadBtnGroup.style.display = 'flex';
         } else {
           // 구독 없는 경우
           btn.style.opacity = '1';
           btn.style.cursor = 'pointer';
           btn.style.pointerEvents = 'auto';
           btn.textContent = '구독 플랜 선택하기';
+          
+          // 다운로드 버튼 숨김
+          downloadBtnGroup.style.display = 'none';
         }
       } catch (error) {
         console.log('구독 상태 확인 중 오류 (구독 없음):', error);
-        // 오류 시에도 버튼 활성화
+        // 오류 시에도 버튼 활성화 및 다운로드 버튼 숨김
         btn.style.opacity = '1';
         btn.style.cursor = 'pointer';
         btn.style.pointerEvents = 'auto';
         btn.textContent = '구독 플랜 선택하기';
+        downloadBtnGroup.style.display = 'none';
       }
     }
     
-    // 페이지 로드 시 구독 상태 확인
-    checkSubscriptionStatus();
-    
     // 구독 플랜 선택 페이지로 이동 (구독 중이면 내 구독 정보로 이동)
     async function goToSubscriptionPlans() {
-      const userId = localStorage.getItem('userId');
-      if (!userId) {
+      if (!currentUser) {
         alert('로그인이 필요합니다.');
         window.location.href = '/login';
         return;
       }
       
       try {
-        const response = await fetch(`/api/subscription/my?userId=${userId}`);
+        const response = await fetch(`/api/subscription/my`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
         const data = await response.json();
         
         if (data.success) {
@@ -1041,6 +1044,34 @@
       } catch (error) {
         // 구독 없음 (404 등)
         window.location.href = '/subscription/plans';
+      }
+    }
+    
+    // 프로그램 다운로드
+    async function downloadProgram() {
+      try {
+        const response = await fetch('/api/download/latest', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          // 다운로드 URL로 이동
+          const link = document.createElement('a');
+          link.href = data.downloadUrl;
+          link.download = data.filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } else {
+          alert(data.message || '다운로드에 실패했습니다.');
+        }
+      } catch (error) {
+        console.error('다운로드 오류:', error);
+        alert('다운로드 중 오류가 발생했습니다.');
       }
     }
     

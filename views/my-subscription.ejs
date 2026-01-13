@@ -310,11 +310,7 @@
   </section>
 
   <script>
-    const userId = localStorage.getItem('userId');
-    if (!userId) {
-      alert('로그인이 필요합니다.');
-      window.location.href = '/login';
-    }
+    const accessToken = localStorage.getItem('access_token');
 
     // 헤더 사용자 정보 표시
     const userName = localStorage.getItem('name') || '게스트';
@@ -394,7 +390,18 @@
     async function loadSubscription() {
       console.log('[구독 정보] 로드 시작...');
       try {
-        const response = await fetch(`/api/subscription/my?userId=${userId}`);
+        if (!accessToken) {
+          console.log('[구독 정보] 로그인 안 됨 - 안내 메시지 표시');
+          document.getElementById('subscriptionContent').style.display = 'none';
+          document.getElementById('noSubscriptionMessage').style.display = 'block';
+          return;
+        }
+        
+        const response = await fetch('/api/subscription/my', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
         const data = await response.json();
         
         console.log('[구독 정보] API 응답:', data);
@@ -486,8 +493,10 @@
       try {
         const response = await fetch('/api/subscription/cancel', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId })
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          }
         });
         
         const data = await response.json();
@@ -513,8 +522,10 @@
       try {
         const response = await fetch('/api/subscription/reactivate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId })
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          }
         });
         
         const data = await response.json();

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PharmChecker 관리자</title>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -40,16 +40,23 @@
   </div>
 
   <script>
+    // Supabase 클라이언트 초기화
+    const supabaseClient = window.supabase.createClient(
+      'https://gitbtujexmsjfixgeoha.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdpdGJ0dWpleG1zamZpeGdlb2hhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NzA5MDIsImV4cCI6MjA4MjA0NjkwMn0.BNN8hauH8NdHZ4vopW_CQ_iK9CR55nfp3JQwuTjrG48'
+    );
+
     // 페이지 로드 시 세션 체크
     window.addEventListener('load', async function() {
-      const token = localStorage.getItem('admin_session_token');
+      const { data: { session } } = await supabaseClient.auth.getSession();
       const container = document.getElementById('app-container');
       
-      if (token) {
-        // 토큰이 있으면 대시보드 로드
+      if (session) {
+        // 세션이 있으면 대시보드 로드
+        window.currentSession = session;
         await loadDashboard();
       } else {
-        // 토큰이 없으면 로그인 페이지 로드
+        // 세션이 없으면 로그인 페이지 로드
         await loadLogin();
       }
     });
@@ -95,7 +102,8 @@
 
     // 로그아웃 후 로그인 페이지로 전환 (전역 함수)
     window.switchToLogin = async function() {
-      localStorage.removeItem('admin_session_token');
+      await supabaseClient.auth.signOut();
+      window.currentSession = null;
       await loadLogin();
     };
   </script>
