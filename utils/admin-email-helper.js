@@ -23,7 +23,10 @@ async function getUserEmail(userId, adminId, purpose = '회원 정보 조회') {
     const { data: { user }, error } = await supabaseAdmin.auth.admin.getUserById(userId);
     
     if (error) {
-      console.error(`[이메일 조회 실패] userId: ${userId}, error:`, error);
+      // 사용자가 삭제된 경우 에러 로그를 출력하지 않음 (정상적인 상황)
+      if (error.code !== 'user_not_found') {
+        console.error(`[이메일 조회 실패] userId: ${userId}, error:`, error);
+      }
       return null;
     }
     
@@ -52,6 +55,10 @@ async function getUserEmailsBatch(userIds, adminId, purpose = '회원 목록 조
     const results = await Promise.all(
       userIds.map(async (userId) => {
         const { data: { user }, error } = await supabaseAdmin.auth.admin.getUserById(userId);
+        // user_not_found 에러는 무시 (삭제된 사용자)
+        if (error && error.code !== 'user_not_found') {
+          console.error(`[배치 이메일 조회 실패] userId: ${userId}`);
+        }
         return { userId, email: user?.email || null, error };
       })
     );

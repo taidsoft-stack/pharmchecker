@@ -292,6 +292,9 @@ function closeUserDetailModal() {
   document.getElementById('newRemarksText').value = '';
   
   switchTab('basic');
+  
+  // 회원 목록 새로고침
+  fetchUsers(currentPage);
 }
 
 // 구독 내역 렌더링

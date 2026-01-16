@@ -8,7 +8,7 @@ require('dotenv').config();
 // routes는 항상 상대 경로로 require (번들링 시점에 해결됨)
 var indexRouter = require("./routes/index");
 var supportRouter = require("./routes/support");
-var adminRouter = require("./routes/admin");
+var adminRouter = require("./routes/admin/index");  // 모듈화된 admin 라우터
 
 var app = express();
 

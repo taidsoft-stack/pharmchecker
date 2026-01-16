@@ -161,7 +161,9 @@
   </div>
 
   <script>
+    // 전역 변수
     let currentUsers = [];
+    let sessionToken = null;
 
     // 페이지 로드 시 인증 확인
     document.addEventListener('DOMContentLoaded', async () => {
@@ -190,8 +192,9 @@
           return;
         }
         
-        // 세션 토큰을 localStorage에 저장
-        localStorage.setItem('admin_session_token', session.access_token);
+        // 세션 토큰을 전역 변수에 저장
+        sessionToken = session.access_token;
+        localStorage.setItem('admin_session_token', sessionToken);
         
         // 관리자 이름 표시
         if (session.user.email) {
@@ -213,7 +216,6 @@
     }
 
     async function loadUsers() {
-      const sessionToken = localStorage.getItem('admin_session_token');
       const pharmacyName = document.getElementById('pharmacyNameSearch').value.trim();
       const pharmacistName = document.getElementById('pharmacistNameSearch').value.trim();
 

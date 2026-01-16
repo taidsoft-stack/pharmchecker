@@ -41,7 +41,6 @@ async function requireAdmin(req, res, next) {
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('[requireAdmin] Authorization 헤더 없음');
     return res.status(401).json({ error: '인증 필요' });
   }
   
@@ -51,20 +50,15 @@ async function requireAdmin(req, res, next) {
     // 커스텀 세션 토큰 파싱 (v1.{base64}.sig 형식)
     let actualToken = token;
     
-    console.log('[requireAdmin] 받은 토큰 형식:', token.substring(0, 50) + '...');
-    
     if (token.startsWith('v1.') && token.endsWith('.sig')) {
       try {
-        const base64Part = token.slice(3, -4); // 'v1.' 제거하고 '.sig' 제거
+        const base64Part = token.slice(3, -4);
         const decoded = JSON.parse(Buffer.from(base64Part, 'base64').toString('utf8'));
         actualToken = decoded.idToken;
-        console.log('[requireAdmin] 커스텀 토큰 디코딩 성공, idToken 추출됨');
       } catch (decodeError) {
         console.error('[requireAdmin] 커스텀 토큰 디코딩 실패:', decodeError.message);
         return res.status(401).json({ error: '잘못된 토큰 형식' });
       }
-    } else {
-      console.log('[requireAdmin] 일반 JWT 토큰으로 처리');
     }
     
     // Supabase에서 토큰 검증
@@ -74,8 +68,6 @@ async function requireAdmin(req, res, next) {
       console.error('[requireAdmin] 토큰 검증 실패:', error);
       return res.status(401).json({ error: '유효하지 않은 토큰' });
     }
-    
-    console.log('[requireAdmin] 사용자 확인:', user.id, user.email);
     
     // 인증된 Supabase 클라이언트 생성 (RLS 적용)
     req.supabase = createClient(
@@ -99,11 +91,9 @@ async function requireAdmin(req, res, next) {
       .single();
     
     if (adminError || !admin) {
-      console.log('[requireAdmin] 관리자 권한 없음:', adminError?.message || '데이터 없음');
       return res.status(403).json({ error: '관리자 권한 없음' });
     }
     
-    console.log('[requireAdmin] 인증 성공:', admin.admin_id, admin.role);
     req.admin = admin;
     req.user = user;
     req.accessToken = actualToken;
@@ -955,8 +945,8 @@ router.get('/api/users/:userId', requireAdmin, async (req, res) => {
 // 대시보드 통계
 router.get('/api/dashboard/stats', requireAdmin, async (req, res) => {
   try {
-    // 전체 회원 수 (RLS 우회를 위해 supabaseAdmin 사용)
-    const { data: usersData, count: totalUsers, error: usersError } = await supabaseAdmin
+    // 전체 회원 수 (RLS 정책: is_admin() 함수로 전체 접근)
+    const { data: usersData, count: totalUsers, error: usersError } = await req.supabase
       .from('users')
       .select('user_id', { count: 'exact' })
       .eq('is_deleted', false);
@@ -966,7 +956,7 @@ router.get('/api/dashboard/stats', requireAdmin, async (req, res) => {
     }
     
     // 활성 구독 수
-    const { data: subsData, count: activeSubscriptions, error: subsError } = await supabaseAdmin
+    const { data: subsData, count: activeSubscriptions, error: subsError } = await req.supabase
       .from('user_subscriptions')
       .select('subscription_id', { count: 'exact' })
       .eq('status', 'active');
@@ -980,7 +970,7 @@ router.get('/api/dashboard/stats', requireAdmin, async (req, res) => {
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
     
-    const { data: payments, error: paymentsError } = await supabaseAdmin
+    const { data: payments, error: paymentsError } = await req.supabase
       .from('billing_payments')
       .select('amount')
       .eq('status', 'success')
@@ -993,7 +983,7 @@ router.get('/api/dashboard/stats', requireAdmin, async (req, res) => {
     const monthlyRevenue = payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
     
     // 활성 프로모션 수
-    const { data: promosData, count: activePromotions, error: promosError } = await supabaseAdmin
+    const { data: promosData, count: activePromotions, error: promosError } = await req.supabase
       .from('subscription_promotions')
       .select('promotion_id', { count: 'exact' })
       .eq('is_active', true);
@@ -1008,8 +998,6 @@ router.get('/api/dashboard/stats', requireAdmin, async (req, res) => {
       monthlyRevenue: monthlyRevenue,
       activePromotions: activePromotions || 0
     };
-    
-    console.log('[대시보드 통계]', result);
     
     res.json(result);
   } catch (error) {
@@ -1133,7 +1121,7 @@ router.get('/api/subscriptions', requireAdmin, async (req, res) => {
         const email = await getUserEmail(sub.user_id, req.admin.admin_id, 'subscription_list');
 
         // 최근 결제 금액 조회 (실제 결제한 금액)
-        const { data: recentPayment } = await supabaseAdmin
+        const { data: recentPayment } = await req.supabase
           .from('billing_payments')
           .select('amount')
           .eq('user_id', sub.user_id)
@@ -1583,7 +1571,7 @@ router.get('/api/remote-sessions', requireAdmin, async (req, res) => {
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
-    // 원격 지원 세션 조회 (RLS 적용)
+    // 원격 지원 세션 조회 (RLS 정책: is_admin() 함수로 전체 접근)
     let query = req.supabase
       .from('remote_support_sessions')
       .select(`
@@ -1635,7 +1623,7 @@ router.get('/api/remote-sessions', requireAdmin, async (req, res) => {
     // 각 세션의 회원 정보 조회
     const sessionsWithUsers = await Promise.all(
       (sessions || []).map(async (session) => {
-        // users 테이블에서 회원 정보 (RLS 적용)
+        // users 테이블에서 회원 정보 (RLS 정책: is_admin() 함수로 전체 접근)
         const { data: user } = await req.supabase
           .from('users')
           .select('pharmacy_name, pharmacist_name')
@@ -1679,38 +1667,39 @@ router.get('/api/remote-sessions/:sessionId', requireAdmin, async (req, res) => 
   try {
     const { sessionId } = req.params;
 
-    // 원격 지원 세션 조회
-    const { data: session, error } = await supabase
+    // 원격 지원 세션 조회 (RLS 정책: is_admin() 함수로 전체 접근)
+    const { data: session, error } = await req.supabase
       .from('remote_support_sessions')
       .select('*')
       .eq('session_id', sessionId)
       .single();
 
     if (error || !session) {
+      console.error('[원격 지원 상세 조회 오류]', error);
       return res.status(404).json({ error: '원격 지원 세션을 찾을 수 없습니다.' });
     }
 
-    // 회원 정보 조회
-    const { data: user } = await supabase
+    // 회원 정보 조회 (RLS 정책: is_admin() 함수로 전체 접근)
+    const { data: user } = await req.supabase
       .from('users')
       .select('pharmacy_name, pharmacist_name')
       .eq('user_id', session.user_id)
       .single();
 
-    const { data: { user: authUser } } = await supabase.auth.admin.getUserById(session.user_id);
+    // 이메일 조회 (admin-email-helper 사용)
+    const email = await getUserEmail(session.user_id, req.admin.admin_id, 'remote_session_detail');
 
     // agent_id가 있으면 상담원 정보도 조회
     let agentEmail = '';
     if (session.agent_id) {
-      const { data: { user: agentAuthUser } } = await supabase.auth.admin.getUserById(session.agent_id);
-      agentEmail = agentAuthUser?.email || '';
+      agentEmail = await getAdminEmail(req.supabase, session.agent_id);
     }
 
     res.json({
       ...session,
       pharmacy_name: user?.pharmacy_name || '',
       pharmacist_name: user?.pharmacist_name || '',
-      email: authUser?.email || '',
+      email: email || '',
       agent_email: agentEmail
     });
   } catch (error) {
@@ -1744,20 +1733,15 @@ router.patch('/api/remote-sessions/:sessionId', requireAdmin, async (req, res) =
     };
 
     // 상담원 ID는 항상 현재 관리자로 설정 (없는 경우에만)
-    // 단, 이미 agent_id가 설정된 경우 기존 데이터 확인
-    const { data: existingSession } = await supabase
+    const { data: existingSession } = await req.supabase
       .from('remote_support_sessions')
       .select('agent_id')
       .eq('session_id', sessionId)
       .single();
 
-    console.log('기존 세션 agent_id:', existingSession?.agent_id);
-    console.log('현재 관리자 ID:', adminId);
-
     // agent_id가 없는 경우에만 현재 관리자로 설정
     if (!existingSession?.agent_id) {
       updateData.agent_id = adminId;
-      console.log('agent_id 설정:', adminId);
     }
 
     // 상태별 추가 처리
@@ -1773,8 +1757,8 @@ router.patch('/api/remote-sessions/:sessionId', requireAdmin, async (req, res) =
     if (notes !== undefined) updateData.notes = notes;
     if (resolution !== undefined) updateData.resolution = resolution;
 
-    // 세션 업데이트
-    const { data: updatedSession, error } = await supabase
+    // 세션 업데이트 (RLS 정책: is_admin() 함수로 전체 접근)
+    const { data: updatedSession, error } = await req.supabase
       .from('remote_support_sessions')
       .update(updateData)
       .eq('session_id', sessionId)
@@ -1786,17 +1770,10 @@ router.patch('/api/remote-sessions/:sessionId', requireAdmin, async (req, res) =
       return res.status(500).json({ error: '서버 오류' });
     }
 
-    console.log('업데이트된 세션:', updatedSession);
-
     // 업데이트된 세션의 상담원 정보 조회
     let agentEmail = '';
     if (updatedSession.agent_id) {
-      console.log('상담원 정보 조회 시작:', updatedSession.agent_id);
-      const { data: { user: agentAuthUser } } = await supabase.auth.admin.getUserById(updatedSession.agent_id);
-      agentEmail = agentAuthUser?.email || '';
-      console.log('상담원 이메일:', agentEmail);
-    } else {
-      console.log('agent_id 없음');
+      agentEmail = await getAdminEmail(req.supabase, updatedSession.agent_id);
     }
 
     res.json({ 
@@ -1819,7 +1796,7 @@ router.patch('/api/remote-sessions/:sessionId', requireAdmin, async (req, res) =
 // FAQ 목록 조회
 router.get('/api/faqs', requireAdmin, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('faqs')
       .select('*')
       .order('display_order', { ascending: true })
@@ -1846,7 +1823,7 @@ router.post('/api/faqs', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: '질문과 답변을 입력해주세요.' });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('faqs')
       .insert({
         question,
@@ -1879,7 +1856,7 @@ router.put('/api/faqs/:faqId', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: '질문과 답변을 입력해주세요.' });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('faqs')
       .update({
         question,
@@ -1909,7 +1886,7 @@ router.delete('/api/faqs/:faqId', requireAdmin, async (req, res) => {
   try {
     const { faqId } = req.params;
 
-    const { error } = await supabase
+    const { error } = await req.supabase
       .from('faqs')
       .delete()
       .eq('faq_id', faqId);
@@ -1933,7 +1910,7 @@ router.delete('/api/faqs/:faqId', requireAdmin, async (req, res) => {
 // 프로모션 목록 조회
 router.get('/api/promotions', requireAdmin, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('subscription_promotions')
       .select('*')
       .order('created_at', { ascending: false });
@@ -1975,7 +1952,7 @@ router.post('/api/promotions', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: '유효하지 않은 할인 유형입니다.' });
     }
 
-    const { data: existingPromo } = await supabase
+    const { data: existingPromo } = await req.supabase
       .from('subscription_promotions')
       .select('promotion_id')
       .eq('promotion_code', promotion_code)
@@ -1985,7 +1962,7 @@ router.post('/api/promotions', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: '이미 사용 중인 프로모션 코드입니다.' });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('subscription_promotions')
       .insert({
         promotion_code,
@@ -2037,7 +2014,7 @@ router.put('/api/promotions/:promotionId', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: '필수 항목을 입력해주세요.' });
     }
 
-    const { data: existingPromo } = await supabase
+    const { data: existingPromo } = await req.supabase
       .from('subscription_promotions')
       .select('promotion_id')
       .eq('promotion_code', promotion_code)
@@ -2048,7 +2025,7 @@ router.put('/api/promotions/:promotionId', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: '이미 사용 중인 프로모션 코드입니다.' });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('subscription_promotions')
       .update({
         promotion_code,
@@ -2084,7 +2061,7 @@ router.delete('/api/promotions/:promotionId', requireAdmin, async (req, res) => 
   try {
     const { promotionId } = req.params;
 
-    const { data: activeSubscriptions } = await supabase
+    const { data: activeSubscriptions } = await req.supabase
       .from('user_subscriptions')
       .select('subscription_id')
       .eq('promotion_id', promotionId)
@@ -2096,7 +2073,7 @@ router.delete('/api/promotions/:promotionId', requireAdmin, async (req, res) => 
       });
     }
 
-    const { data: linkedReferralCodes } = await supabase
+    const { data: linkedReferralCodes } = await req.supabase
       .from('referral_codes')
       .select('referral_code_id')
       .eq('promotion_id', promotionId)
@@ -2108,7 +2085,7 @@ router.delete('/api/promotions/:promotionId', requireAdmin, async (req, res) => 
       });
     }
 
-    const { error } = await supabase
+    const { error } = await req.supabase
       .from('subscription_promotions')
       .delete()
       .eq('promotion_id', promotionId);
@@ -2132,7 +2109,7 @@ router.delete('/api/promotions/:promotionId', requireAdmin, async (req, res) => 
 // 플랜 목록 조회
 router.get('/api/plans', requireAdmin, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('subscription_plans')
       .select('*')
       .order('created_at', { ascending: false });
@@ -2161,7 +2138,7 @@ router.post('/api/plans', requireAdmin, async (req, res) => {
       is_active
     } = req.body;
 
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('subscription_plans')
       .insert([{
         plan_code,
@@ -2199,7 +2176,7 @@ router.put('/api/plans/:planId', requireAdmin, async (req, res) => {
       is_active
     } = req.body;
 
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('subscription_plans')
       .update({
         plan_code,
@@ -2231,7 +2208,7 @@ router.delete('/api/plans/:planId', requireAdmin, async (req, res) => {
     const { planId } = req.params;
 
     // 해당 플랜을 사용하는 구독이 있는지 확인
-    const { count } = await supabase
+    const { count } = await req.supabase
       .from('user_subscriptions')
       .select('*', { count: 'exact', head: true })
       .or(`entry_plan_id.eq.${planId},billing_plan_id.eq.${planId}`);
@@ -2243,7 +2220,7 @@ router.delete('/api/plans/:planId', requireAdmin, async (req, res) => {
       });
     }
 
-    const { error } = await supabase
+    const { error } = await req.supabase
       .from('subscription_plans')
       .delete()
       .eq('plan_id', planId);
@@ -2267,7 +2244,7 @@ router.delete('/api/plans/:planId', requireAdmin, async (req, res) => {
 // 추천인 코드 목록 조회
 router.get('/api/referral-codes', requireAdmin, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('referral_codes')
       .select(`
         *,
@@ -2301,7 +2278,7 @@ router.post('/api/referral-codes', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: '추천인 코드와 프로모션을 선택해주세요.' });
     }
 
-    const { data: existingCode } = await supabase
+    const { data: existingCode } = await req.supabase
       .from('referral_codes')
       .select('referral_code_id')
       .eq('code', code)
@@ -2311,7 +2288,7 @@ router.post('/api/referral-codes', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: '이미 사용 중인 추천인 코드입니다.' });
     }
 
-    const { data: promotion } = await supabase
+    const { data: promotion } = await req.supabase
       .from('subscription_promotions')
       .select('promotion_id')
       .eq('promotion_id', promotion_id)
@@ -2321,7 +2298,7 @@ router.post('/api/referral-codes', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: '유효하지 않은 프로모션입니다.' });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('referral_codes')
       .insert({
         code,
@@ -2356,7 +2333,7 @@ router.put('/api/referral-codes/:referralCodeId', requireAdmin, async (req, res)
       return res.status(400).json({ error: '추천인 코드와 프로모션을 선택해주세요.' });
     }
 
-    const { data: existingCode } = await supabase
+    const { data: existingCode } = await req.supabase
       .from('referral_codes')
       .select('referral_code_id')
       .eq('code', code)
@@ -2367,7 +2344,7 @@ router.put('/api/referral-codes/:referralCodeId', requireAdmin, async (req, res)
       return res.status(400).json({ error: '이미 사용 중인 추천인 코드입니다.' });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('referral_codes')
       .update({
         code,
@@ -2398,7 +2375,7 @@ router.delete('/api/referral-codes/:referralCodeId', requireAdmin, async (req, r
   try {
     const { referralCodeId } = req.params;
 
-    const { data: referralCode } = await supabase
+    const { data: referralCode } = await req.supabase
       .from('referral_codes')
       .select('used_count')
       .eq('referral_code_id', referralCodeId)
@@ -2410,7 +2387,7 @@ router.delete('/api/referral-codes/:referralCodeId', requireAdmin, async (req, r
       });
     }
 
-    const { error } = await supabase
+    const { error } = await req.supabase
       .from('referral_codes')
       .delete()
       .eq('referral_code_id', referralCodeId);
@@ -2434,7 +2411,7 @@ router.delete('/api/referral-codes/:referralCodeId', requireAdmin, async (req, r
 // 할당 가능한 프로모션 목록 조회
 router.get('/api/assign-promotion/available-promotions', requireAdmin, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('subscription_promotions')
       .select('*')
       .eq('is_active', true)

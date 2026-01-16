@@ -6,22 +6,33 @@ async function requireAdmin(req, res, next) {
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('[requireAdmin] Authorization 헤더 없음');
     return res.status(401).json({ error: '인증 필요' });
   }
   
   const token = authHeader.substring(7);
   
   try {
+    // 커스텀 세션 토큰 파싱 (v1.{base64}.sig 형식)
+    let actualToken = token;
+    
+    if (token.startsWith('v1.') && token.endsWith('.sig')) {
+      try {
+        const base64Part = token.slice(3, -4);
+        const decoded = JSON.parse(Buffer.from(base64Part, 'base64').toString('utf8'));
+        actualToken = decoded.idToken;
+      } catch (decodeError) {
+        console.error('[requireAdmin] 커스텀 토큰 디코딩 실패:', decodeError.message);
+        return res.status(401).json({ error: '잘못된 토큰 형식' });
+      }
+    }
+    
     // Supabase에서 토큰 검증
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const { data: { user }, error } = await supabase.auth.getUser(actualToken);
     
     if (error || !user) {
       console.error('[requireAdmin] 토큰 검증 실패:', error);
       return res.status(401).json({ error: '유효하지 않은 토큰' });
     }
-    
-    console.log('[requireAdmin] 사용자 확인:', user.id, user.email);
     
     // 인증된 Supabase 클라이언트 생성 (RLS 적용)
     req.supabase = createClient(
@@ -30,7 +41,7 @@ async function requireAdmin(req, res, next) {
       {
         global: {
           headers: {
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${actualToken}`
           }
         }
       }
@@ -45,19 +56,19 @@ async function requireAdmin(req, res, next) {
       .single();
     
     if (adminError || !admin) {
-      console.log('[requireAdmin] 관리자 권한 없음:', adminError?.message || '데이터 없음');
       return res.status(403).json({ error: '관리자 권한 없음' });
     }
     
-    console.log('[requireAdmin] 인증 성공:', admin.admin_id, admin.role);
     req.admin = admin;
     req.user = user;
-    req.accessToken = token;
+    req.accessToken = actualToken;
     next();
   } catch (error) {
     console.error('[requireAdmin] 인증 오류:', error);
     return res.status(500).json({ error: '서버 오류' });
   }
 }
+
+module.exports = { requireAdmin };
 
 module.exports = { requireAdmin };
