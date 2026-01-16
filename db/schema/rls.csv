@@ -40,22 +40,11 @@ public,promotion_usage_history,Admin manage promotion usage history,PERMISSIVE,{
   WHERE ((a.admin_id = auth.uid()) AND (a.is_active = true))))",null
 public,promotion_usage_history,promotion_usage_history_admin_manage,PERMISSIVE,{public},ALL,is_admin(),null
 public,referral_codes,referral_codes_admin_manage,PERMISSIVE,{public},ALL,is_admin(),null
-public,remote_support_sessions,Admin cannot insert remote support session,PERMISSIVE,{public},INSERT,null,false
-public,remote_support_sessions,Admin manage remote support,PERMISSIVE,{public},ALL,"(EXISTS ( SELECT 1
-   FROM admins a
-  WHERE ((a.admin_id = auth.uid()) AND (a.is_active = true))))",null
-public,remote_support_sessions,Admin manage remote support sessions,PERMISSIVE,{public},ALL,"(EXISTS ( SELECT 1
-   FROM admins
-  WHERE ((admins.admin_id = auth.uid()) AND (admins.is_active = true))))",null
-public,remote_support_sessions,User can create remote support session,PERMISSIVE,{public},INSERT,null,((user_id = auth.uid()) AND (status = 'requested'::text))
-public,remote_support_sessions,User can insert own remote sessions,PERMISSIVE,{public},INSERT,null,((user_id = auth.uid()) AND is_active_user())
-public,remote_support_sessions,User can read own remote sessions,PERMISSIVE,{public},SELECT,((user_id = auth.uid()) AND is_active_user()),null
-public,remote_support_sessions,User can read own remote support sessions,PERMISSIVE,{public},SELECT,(user_id = auth.uid()),null
-public,remote_support_sessions,User cannot update remote support session,PERMISSIVE,{public},UPDATE,false,null
-public,remote_support_sessions,User create remote support session,PERMISSIVE,{public},INSERT,null,((user_id = auth.uid()) AND (status = 'requested'::text))
 public,remote_support_sessions,remote_support_sessions_admin_full_access,PERMISSIVE,{public},ALL,is_admin(),null
-public,remote_support_sessions,remote_support_sessions_user_insert,PERMISSIVE,{public},INSERT,null,(auth.uid() = user_id)
-public,remote_support_sessions,remote_support_sessions_user_own,PERMISSIVE,{public},SELECT,(auth.uid() = user_id),null
+public,remote_support_sessions,remote_support_sessions_user_insert,PERMISSIVE,{public},INSERT,null,((auth.uid() = user_id) AND (status = 'requested'::text))
+public,remote_support_sessions,remote_support_sessions_user_no_delete,PERMISSIVE,{public},DELETE,false,null
+public,remote_support_sessions,remote_support_sessions_user_no_update,PERMISSIVE,{public},UPDATE,false,null
+public,remote_support_sessions,remote_support_sessions_user_select,PERMISSIVE,{public},SELECT,(auth.uid() = user_id),null
 public,rxheads,tenant_rls_rxheads,PERMISSIVE,{public},ALL,(tenant_id = auth.uid()),null
 public,rxrecipe_details,tenant_rls_rxrecipe_details,PERMISSIVE,{public},ALL,(tenant_id = auth.uid()),null
 public,rxrecipes,tenant_rls_rxrecipes,PERMISSIVE,{public},ALL,(tenant_id = auth.uid()),null

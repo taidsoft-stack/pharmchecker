@@ -2258,7 +2258,11 @@
           attachmentHTML = '<div class="field"><label class="label">첨부파일</label><div class="content">';
           attachments.forEach(att => {
             const isImage = att.mime_type && att.mime_type.startsWith('image/');
-            const fileUrl = att.file_url || att.file_path;
+            const fileUrl = att.file_url;
+            if (!fileUrl) {
+              attachmentHTML += '<p class="has-text-danger"><i class="fas fa-exclamation-triangle"></i> ' + att.file_name + ' (파일 URL 생성 실패)</p>';
+              return;
+            }
             if (isImage) {
               attachmentHTML += '<div class="box" style="max-width: 500px;"><p><strong>' + att.file_name + '</strong></p><img src="' + fileUrl + '" alt="' + att.file_name + '" style="max-width: 100%; height: auto; border: 1px solid #dbdbdb; border-radius: 4px;"></div>';
             } else {
@@ -2277,7 +2281,11 @@
               replyAttHTML += '<div class="content mt-2"><strong>첨부파일:</strong><br>';
               reply.attachments.forEach(att => {
                 const isImage = att.mime_type && att.mime_type.startsWith('image/');
-                const fileUrl = att.file_url || att.file_path;
+                const fileUrl = att.file_url;
+                if (!fileUrl) {
+                  replyAttHTML += '<p class="has-text-danger"><i class="fas fa-exclamation-triangle"></i> ' + att.file_name + ' (파일 URL 생성 실패)</p>';
+                  return;
+                }
                 if (isImage) {
                   replyAttHTML += '<div class="box" style="max-width: 400px; margin-top: 0.5rem;"><img src="' + fileUrl + '" alt="' + att.file_name + '" style="max-width: 100%; height: auto; border: 1px solid #dbdbdb; border-radius: 4px;"><p class="is-size-7 mt-1">' + att.file_name + '</p></div>';
                 } else {
@@ -2413,25 +2421,24 @@
       button.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>&nbsp; 전송 중...';
       
       try {
-        let attachments = [];
+        // FormData를 사용하여 파일과 텍스트 함께 전송
+        const formData = new FormData();
+        formData.append('reply_content', content);
         
-        // 파일 업로드 처리 (실제 Supabase Storage 연동 필요)
+        // 파일 첨부
         if (fileInput.files.length > 0) {
-          // TODO: Supabase Storage에 파일 업로드 로직 구현
-          // 현재는 파일 첨부 없이 답변만 전송
-          alert('파일 업로드 기능은 Supabase Storage 설정 후 사용 가능합니다.');
+          for (let i = 0; i < fileInput.files.length; i++) {
+            formData.append('attachments', fileInput.files[i]);
+          }
         }
         
         const response = await fetch('/admin/api/support-tickets/' + ticketId + '/reply', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + localStorage.getItem('admin_session_token')
+            // Content-Type은 FormData 사용 시 자동 설정됨
           },
-          body: JSON.stringify({
-            reply_content: content,
-            attachments: attachments
-          })
+          body: formData
         });
         
         if (!response.ok) {
@@ -2443,7 +2450,6 @@
         loadTicketDetailPage(ticketId); // 페이지 새로고침
         
       } catch (error) {
-        console.error('답변 전송 오류:', error);
         alert('답변 전송 중 오류가 발생했습니다.');
         button.disabled = false;
         button.innerHTML = '<i class="fas fa-paper-plane"></i>&nbsp; 답장 전송';

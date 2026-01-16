@@ -4,7 +4,7 @@ storage,objects,Admin full access to support attachments,PERMISSIVE,{public},ALL
   WHERE ((admins.admin_id = auth.uid()) AND (admins.is_active = true)))))","((bucket_id = 'support-attachments'::text) AND (EXISTS ( SELECT 1
    FROM admins
   WHERE ((admins.admin_id = auth.uid()) AND (admins.is_active = true)))))"
-storage,objects,Deny direct read on support-attachments,PERMISSIVE,{public},SELECT,(bucket_id <> 'support-attachments'::text),null
+storage,objects,Service role can access all storage objects,PERMISSIVE,{service_role},ALL,true,true
 storage,objects,User can upload own ticket attachments,PERMISSIVE,{public},INSERT,null,"((bucket_id = 'support-attachments'::text) AND ((storage.foldername(name))[1] IN ( SELECT (support_tickets.ticket_id)::text AS ticket_id
    FROM support_tickets
   WHERE (support_tickets.user_id = auth.uid()))))"
